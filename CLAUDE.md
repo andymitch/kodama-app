@@ -13,7 +13,7 @@
 
 ### Build
 ```bash
-cd ui && bun install && bun run build   # Build SvelteKit frontend
+cd ui && bun install && bun run build   # Build Svelte frontend
 cd app && bun run tauri build           # Build Tauri desktop app
 ```
 
@@ -25,9 +25,9 @@ cd app && bun run tauri dev
 ## Architecture
 
 - `app/` — Tauri v2 desktop app, embeds a full Kodama server
-- `ui/` — SvelteKit frontend (adapter-static), shared between desktop app and headless web use
+- `ui/` — Svelte + Vite frontend (static SPA), shared between desktop app and headless web use
 - The app depends on `kodama` (git dependency from github.com/andymitch/kodama) with `features = ["web"]`
-- The SvelteKit UI communicates via WebSocket and REST — no Tauri IPC for media
+- The UI communicates via WebSocket and REST — no Tauri IPC for media
 
 ## Key Patterns
 
