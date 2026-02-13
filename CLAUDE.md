@@ -33,4 +33,4 @@ cd app && bun run tauri dev
 
 - The embedded server binds to `127.0.0.1` (localhost only) in the desktop app
 - UI path is resolved from Tauri's bundled resources in production, auto-detected in dev
-- Crypto dependency pinning (sha2/digest) is required after `cargo update` — run `./scripts/setup.sh`
+- The `kodama` crate depends on `iroh` from git; the workspace `[patch]` redirects it to the crates.io release for stability

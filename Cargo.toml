@@ -15,13 +15,6 @@ description = "Kodama desktop app - privacy-focused P2P security camera system"
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# Networking
-iroh = { git = "https://github.com/n0-computer/iroh", branch = "main" }
-
-# Serialization
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-
 # Error handling
 anyhow = "1"
 
@@ -31,3 +24,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Internal crates
 kodama = { git = "https://github.com/andymitch/kodama", features = ["web"] }
+
+[patch."https://github.com/n0-computer/iroh"]
+iroh = "0.96.1"

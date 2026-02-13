@@ -1,4 +1,2 @@
-export * from "./button/index.js";
-export * from "./card/index.js";
-export * from "./input/index.js";
-export * from "./badge/index.js";
+export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card/index.js";
+export { Badge, type BadgeVariant, badgeVariants } from "./badge/index.js";

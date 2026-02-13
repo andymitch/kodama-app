@@ -262,7 +262,7 @@ export class WebSocketTransport implements KodamaTransport {
   private parseAudioLevel(view: DataView): void {
     // 1(type) + 8(source_id) + 4(f32 level_db)
     if (view.byteLength < 13) return;
-    const sourceId = this.decodeSourceId(view.buffer, 1);
+    const sourceId = this.decodeSourceId(view.buffer as ArrayBuffer, 1);
     const levelDb = view.getFloat32(9, true);
     this.emit('audio-level', { source_id: sourceId, level_db: levelDb });
   }
