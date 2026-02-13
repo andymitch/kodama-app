@@ -1,0 +1,207 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_desktop:
+        description: 'Build desktop app'
+        type: boolean
+        default: true
+      build_web:
+        description: 'Build headless web UI tarball'
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-web-ui:
+    if: inputs.build_web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install and build UI
+        run: cd ui && bun install && bun run build
+
+      - name: Package UI tarball
+        run: tar czf kodama-ui.tar.gz -C ui/build .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kodama-ui
+          path: kodama-ui.tar.gz
+
+  build-desktop:
+    if: inputs.build_desktop
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    env:
+      APPLE_SIGN_AVAILABLE: ${{ secrets.APPLE_CERTIFICATE != '' && 'true' || '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri -> target
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Pin crypto dependencies
+        run: |
+          cargo update -p sha2 --precise 0.11.0-rc.4 || cargo update -p sha2@0.11.0-rc.4 --precise 0.11.0-rc.4 || true
+          cargo update -p digest --precise 0.11.0-rc.9 || cargo update -p digest@0.11.0-rc.9 --precise 0.11.0-rc.9 || true
+
+      - name: Install frontend dependencies
+        run: cd app && bun install
+
+      - name: Import macOS certificate
+        if: startsWith(matrix.platform, 'macos') && env.APPLE_SIGN_AVAILABLE
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+
+      - name: Import Windows certificate
+        if: matrix.platform == 'windows-latest' && env.WINDOWS_SIGN_AVAILABLE
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        shell: powershell
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          $certPath = Join-Path $env:RUNNER_TEMP "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+          Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
+          Remove-Item $certPath
+
+      - name: Set short SHA
+        shell: bash
+        run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Build Tauri app (signed)
+        if: startsWith(matrix.platform, 'macos') && env.APPLE_SIGN_AVAILABLE
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: app
+          args: ${{ matrix.args }}
+
+      - name: Build Tauri app
+        if: "!(startsWith(matrix.platform, 'macos') && env.APPLE_SIGN_AVAILABLE)"
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: app
+          args: ${{ matrix.args }}
+
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kodama-app-${{ matrix.platform }}-${{ strategy.job-index }}
+          path: |
+            app/src-tauri/target/release/bundle/**/*.dmg
+            app/src-tauri/target/release/bundle/**/*.AppImage
+            app/src-tauri/target/release/bundle/**/*.deb
+            app/src-tauri/target/release/bundle/**/*.msi
+            app/src-tauri/target/release/bundle/**/*.exe
+            app/src-tauri/target/*/release/bundle/**/*.dmg
+            app/src-tauri/target/*/release/bundle/**/*.AppImage
+            app/src-tauri/target/*/release/bundle/**/*.deb
+            app/src-tauri/target/*/release/bundle/**/*.msi
+            app/src-tauri/target/*/release/bundle/**/*.exe
+
+  release:
+    needs: [build-web-ui, build-desktop]
+    if: |
+      always() &&
+      (needs.build-web-ui.result == 'success' || needs.build-web-ui.result == 'skipped') &&
+      (needs.build-desktop.result == 'success' || needs.build-desktop.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" =~ ^v[0-9] ]]; then
+            VERSION="${TAG#v}"
+          else
+            VERSION="0.1.0-$(git rev-parse --short HEAD)"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Collect release files
+        run: |
+          mkdir -p release/
+
+          # Web UI tarball
+          cp artifacts/kodama-ui/*.tar.gz release/ 2>/dev/null || true
+
+          # Desktop installers
+          find artifacts/kodama-app-* -type f \( -name '*.dmg' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.msi' -o -name '*.exe' \) -exec cp {} release/ \; 2>/dev/null || true
+
+          ls -la release/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: "Kodama App v${{ env.VERSION }}"
+          generate_release_notes: true
+          files: release/*

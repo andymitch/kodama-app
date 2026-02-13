@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+    "app/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "BSL-1.1"
+repository = "https://github.com/andymitch/kodama-app"
+description = "Kodama desktop app - privacy-focused P2P security camera system"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Networking
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "main" }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Internal crates
+kodama = { git = "https://github.com/andymitch/kodama", features = ["web"] }

@@ -1,0 +1,28 @@
+# Build artifacts
+/target/
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# JS/Tauri build artifacts
+**/node_modules/
+**/dist/
+**/src-tauri/gen/
+**/.svelte-kit/
+ui/build/
+
+# Package manager lockfiles
+**/package-lock.json
+**/bun.lock
+**/bun.lockb
