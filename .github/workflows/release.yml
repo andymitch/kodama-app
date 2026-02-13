@@ -30,8 +30,8 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
 
-      - name: Install frontend dependencies
-        run: cd ui && bun install
+      - name: Install dependencies
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Import macOS certificate
         if: env.APPLE_CERTIFICATE != ''
@@ -49,25 +49,28 @@ jobs:
           rm certificate.p12
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        with:
-          projectPath: app
-          args: --target ${{ matrix.target }}
+          _SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          _APPLE_ID: ${{ secrets.APPLE_ID }}
+          _APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          _APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Only set signing env vars when signing identity is configured
+          if [ -n "$_SIGNING_IDENTITY" ]; then
+            export APPLE_SIGNING_IDENTITY="$_SIGNING_IDENTITY"
+            export APPLE_ID="$_APPLE_ID"
+            export APPLE_PASSWORD="$_APPLE_PASSWORD"
+            export APPLE_TEAM_ID="$_APPLE_TEAM_ID"
+          fi
+          cd app && bun run tauri build --target ${{ matrix.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.target }}
           path: |
-            app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            target/${{ matrix.target }}/release/bundle/**/*.dmg
 
   build-macos-universal:
     needs: build-macos
@@ -116,24 +119,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install frontend dependencies
-        run: cd ui && bun install
+      - name: Install dependencies
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: app
+        run: cd app && bun run tauri build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux
           path: |
-            app/src-tauri/target/release/bundle/**/*.AppImage
-            app/src-tauri/target/release/bundle/**/*.deb
-            app/src-tauri/target/release/bundle/**/*.rpm
+            target/release/bundle/**/*.AppImage
+            target/release/bundle/**/*.deb
+            target/release/bundle/**/*.rpm
 
   build-windows:
     runs-on: windows-latest
@@ -146,8 +145,8 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
 
-      - name: Install frontend dependencies
-        run: cd ui && bun install
+      - name: Install dependencies
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Import Windows certificate
         if: env.WINDOWS_CERTIFICATE != ''
@@ -163,19 +162,15 @@ jobs:
           Remove-Item $certPath
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: app
+        run: cd app && bun run tauri build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows
           path: |
-            app/src-tauri/target/release/bundle/**/*.msi
-            app/src-tauri/target/release/bundle/**/*.exe
+            target/release/bundle/**/*.msi
+            target/release/bundle/**/*.exe
 
   # ---------- Mobile ----------
 
@@ -205,9 +200,9 @@ jobs:
       - uses: swatinem/rust-cache@v2
         if: steps.check.outputs.enabled == 'true'
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         if: steps.check.outputs.enabled == 'true'
-        run: cd ui && bun install
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Build iOS app
         if: steps.check.outputs.enabled == 'true'
@@ -265,9 +260,9 @@ jobs:
         if: steps.check.outputs.enabled == 'true'
         run: sdkmanager "ndk;26.1.10909125"
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         if: steps.check.outputs.enabled == 'true'
-        run: cd ui && bun install
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Decode Android keystore
         if: steps.check.outputs.enabled == 'true' && env.ANDROID_KEYSTORE != ''
