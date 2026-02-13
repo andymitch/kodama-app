@@ -7,10 +7,12 @@
   let audioContext: AudioContext | null = null;
   let workletNode: AudioWorkletNode | null = null;
   let workletReady = false;
+  let initInProgress = false;
   let pendingChunks: AudioDataEvent[] = [];
 
   async function ensureWorklet(sampleRate: number): Promise<void> {
-    if (workletReady) return;
+    if (workletReady || initInProgress) return;
+    initInProgress = true;
 
     audioContext = new AudioContext({ sampleRate });
     await audioContext.audioWorklet.addModule('/pcm-worklet-processor.js');

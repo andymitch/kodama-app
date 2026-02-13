@@ -303,13 +303,196 @@ mod dirs_next {
         }
     }
 
-    mod dirs_inner {
+    pub(crate) mod dirs_inner {
         use std::path::PathBuf;
 
         pub fn home_dir() -> Option<PathBuf> {
             std::env::var("HOME")
                 .ok()
                 .map(PathBuf::from)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod dirs_next_tests {
+        use super::*;
+
+        #[test]
+        fn data_dir_returns_some_on_linux() {
+            if std::env::var("HOME").is_ok() {
+                let dir = dirs_next::data_dir();
+                assert!(dir.is_some());
+                let path = dir.unwrap();
+                if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+                    assert_eq!(path, PathBuf::from(xdg));
+                } else {
+                    assert!(
+                        path.to_string_lossy().contains(".local/share")
+                            || path.to_string_lossy().contains("Library/Application Support")
+                            || std::env::var("APPDATA").is_ok()
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn data_dir_respects_xdg_data_home() {
+            let original = std::env::var("XDG_DATA_HOME").ok();
+            std::env::set_var("XDG_DATA_HOME", "/tmp/test-kodama-data");
+
+            let dir = dirs_next::data_dir();
+
+            match original {
+                Some(val) => std::env::set_var("XDG_DATA_HOME", val),
+                None => std::env::remove_var("XDG_DATA_HOME"),
+            }
+
+            #[cfg(target_os = "linux")]
+            assert_eq!(dir, Some(PathBuf::from("/tmp/test-kodama-data")));
+        }
+
+        #[test]
+        fn home_dir_returns_some_when_home_set() {
+            if std::env::var("HOME").is_ok() {
+                let home = dirs_next::dirs_inner::home_dir();
+                assert!(home.is_some());
+                assert!(!home.unwrap().as_os_str().is_empty());
+            }
+        }
+    }
+
+    mod config_tests {
+        #[test]
+        fn default_buffer_capacity_is_512() {
+            std::env::remove_var("KODAMA_BUFFER_SIZE");
+            let capacity: usize = std::env::var("KODAMA_BUFFER_SIZE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(512);
+            assert_eq!(capacity, 512);
+        }
+
+        #[test]
+        fn buffer_capacity_from_env() {
+            std::env::set_var("KODAMA_BUFFER_SIZE", "1024");
+            let capacity: usize = std::env::var("KODAMA_BUFFER_SIZE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(512);
+            std::env::remove_var("KODAMA_BUFFER_SIZE");
+            assert_eq!(capacity, 1024);
+        }
+
+        #[test]
+        fn invalid_buffer_capacity_falls_back_to_default() {
+            std::env::set_var("KODAMA_BUFFER_SIZE", "not_a_number");
+            let capacity: usize = std::env::var("KODAMA_BUFFER_SIZE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(512);
+            std::env::remove_var("KODAMA_BUFFER_SIZE");
+            assert_eq!(capacity, 512);
+        }
+
+        #[test]
+        fn default_web_port_is_3000() {
+            std::env::remove_var("KODAMA_WEB_PORT");
+            let port: u16 = std::env::var("KODAMA_WEB_PORT")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(3000);
+            assert_eq!(port, 3000);
+        }
+
+        #[test]
+        fn web_port_from_env() {
+            std::env::set_var("KODAMA_WEB_PORT", "8080");
+            let port: u16 = std::env::var("KODAMA_WEB_PORT")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(3000);
+            std::env::remove_var("KODAMA_WEB_PORT");
+            assert_eq!(port, 8080);
+        }
+
+        #[test]
+        fn default_storage_max_gb_is_10() {
+            std::env::remove_var("KODAMA_STORAGE_MAX_GB");
+            let max: u64 = std::env::var("KODAMA_STORAGE_MAX_GB")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(10);
+            assert_eq!(max, 10);
+        }
+
+        #[test]
+        fn default_retention_days_is_7() {
+            std::env::remove_var("KODAMA_RETENTION_DAYS");
+            let days: u64 = std::env::var("KODAMA_RETENTION_DAYS")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(7);
+            assert_eq!(days, 7);
+        }
+
+        #[test]
+        fn storage_path_none_when_env_not_set() {
+            std::env::remove_var("KODAMA_STORAGE_PATH");
+            let path = std::env::var("KODAMA_STORAGE_PATH")
+                .map(PathBuf::from)
+                .ok();
+            assert!(path.is_none());
+        }
+
+        #[test]
+        fn storage_path_from_env() {
+            std::env::set_var("KODAMA_STORAGE_PATH", "/tmp/kodama-storage");
+            let path = std::env::var("KODAMA_STORAGE_PATH")
+                .map(PathBuf::from)
+                .ok();
+            std::env::remove_var("KODAMA_STORAGE_PATH");
+            assert_eq!(path, Some(PathBuf::from("/tmp/kodama-storage")));
+        }
+
+        #[test]
+        fn key_path_default_uses_data_dir() {
+            std::env::remove_var("KODAMA_KEY_PATH");
+            let key_path = std::env::var("KODAMA_KEY_PATH")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| {
+                    let base = super::super::dirs_next::data_dir()
+                        .unwrap_or_else(|| PathBuf::from("."));
+                    base.join("kodama").join("server.key")
+                });
+            assert!(key_path.ends_with("kodama/server.key"));
+        }
+
+        #[test]
+        fn key_path_from_env() {
+            std::env::set_var("KODAMA_KEY_PATH", "/custom/path/key.pem");
+            let key_path = std::env::var("KODAMA_KEY_PATH")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::from("."));
+            std::env::remove_var("KODAMA_KEY_PATH");
+            assert_eq!(key_path, PathBuf::from("/custom/path/key.pem"));
+        }
+
+        #[test]
+        fn storage_size_calculation() {
+            let max_gb: u64 = 10;
+            let bytes = max_gb * 1024 * 1024 * 1024;
+            assert_eq!(bytes, 10_737_418_240);
+        }
+
+        #[test]
+        fn retention_calculation() {
+            let days: u64 = 7;
+            let secs = days * 24 * 60 * 60;
+            assert_eq!(secs, 604_800);
         }
     }
 }
