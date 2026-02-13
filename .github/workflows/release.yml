@@ -30,8 +30,8 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
 
-      - name: Install frontend dependencies
-        run: cd ui && bun install
+      - name: Install dependencies
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Import macOS certificate
         if: env.APPLE_CERTIFICATE != ''
@@ -60,7 +60,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: app
-          tauriScript: bunx tauri
+          tauriScript: bun run tauri
           args: --target ${{ matrix.target }}
 
       - name: Upload artifacts
@@ -117,8 +117,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install frontend dependencies
-        run: cd ui && bun install
+      - name: Install dependencies
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -126,7 +126,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: app
-          tauriScript: bunx tauri
+          tauriScript: bun run tauri
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -148,8 +148,8 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
 
-      - name: Install frontend dependencies
-        run: cd ui && bun install
+      - name: Install dependencies
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Import Windows certificate
         if: env.WINDOWS_CERTIFICATE != ''
@@ -170,7 +170,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: app
-          tauriScript: bunx tauri
+          tauriScript: bun run tauri
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -208,9 +208,9 @@ jobs:
       - uses: swatinem/rust-cache@v2
         if: steps.check.outputs.enabled == 'true'
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         if: steps.check.outputs.enabled == 'true'
-        run: cd ui && bun install
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Build iOS app
         if: steps.check.outputs.enabled == 'true'
@@ -268,9 +268,9 @@ jobs:
         if: steps.check.outputs.enabled == 'true'
         run: sdkmanager "ndk;26.1.10909125"
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         if: steps.check.outputs.enabled == 'true'
-        run: cd ui && bun install
+        run: cd ui && bun install && cd ../app && bun install
 
       - name: Decode Android keystore
         if: steps.check.outputs.enabled == 'true' && env.ANDROID_KEYSTORE != ''
