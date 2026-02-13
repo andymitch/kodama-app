@@ -49,18 +49,21 @@ jobs:
           rm certificate.p12
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Certificate is imported by the step above; only pass signing/notarization vars
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        with:
-          projectPath: app
-          tauriScript: bun run tauri
-          args: --target ${{ matrix.target }}
+          _SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          _APPLE_ID: ${{ secrets.APPLE_ID }}
+          _APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          _APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Only set signing env vars when signing identity is configured
+          if [ -n "$_SIGNING_IDENTITY" ]; then
+            export APPLE_SIGNING_IDENTITY="$_SIGNING_IDENTITY"
+            export APPLE_ID="$_APPLE_ID"
+            export APPLE_PASSWORD="$_APPLE_PASSWORD"
+            export APPLE_TEAM_ID="$_APPLE_TEAM_ID"
+          fi
+          cd app && bun run tauri build --target ${{ matrix.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
