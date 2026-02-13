@@ -5,38 +5,53 @@
   let { sourceId }: { sourceId: string } = $props();
 
   let audioContext: AudioContext | null = null;
-  let nextPlayTime = 0;
+  let workletNode: AudioWorkletNode | null = null;
+  let workletReady = false;
+  let initInProgress = false;
+  let pendingChunks: AudioDataEvent[] = [];
 
-  function playAudioChunk(pcmData: ArrayBuffer, sampleRate: number, channels: number) {
-    if (!audioContext) {
-      audioContext = new AudioContext();
-      nextPlayTime = audioContext.currentTime;
+  async function ensureWorklet(sampleRate: number): Promise<void> {
+    if (workletReady || initInProgress) return;
+    initInProgress = true;
+
+    audioContext = new AudioContext({ sampleRate });
+    await audioContext.audioWorklet.addModule('/pcm-worklet-processor.js');
+    workletNode = new AudioWorkletNode(audioContext, 'pcm-worklet-processor', {
+      outputChannelCount: [2],
+    });
+    workletNode.connect(audioContext.destination);
+    workletReady = true;
+
+    // Flush any chunks that arrived before the worklet was ready
+    for (const chunk of pendingChunks) {
+      workletNode.port.postMessage(
+        { pcmData: chunk.data, channels: chunk.channels, sampleRate: chunk.sample_rate },
+        [chunk.data],
+      );
     }
-
-    const int16Array = new Int16Array(pcmData);
-    const floatArray = new Float32Array(int16Array.length);
-    for (let i = 0; i < int16Array.length; i++) {
-      floatArray[i] = int16Array[i] / 32768.0;
-    }
-
-    const audioBuffer = audioContext.createBuffer(channels, floatArray.length, sampleRate);
-    audioBuffer.getChannelData(0).set(floatArray);
-
-    const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContext.destination);
-
-    const scheduleTime = Math.max(nextPlayTime, audioContext.currentTime);
-    source.start(scheduleTime);
-    nextPlayTime = scheduleTime + audioBuffer.duration;
+    pendingChunks = [];
   }
 
   function handleAudioData(event: AudioDataEvent) {
     if (event.source_id !== sourceId) return;
+
+    if (!workletReady) {
+      // Queue while worklet is initializing; clone the buffer since
+      // the original may be neutered by a prior transfer
+      pendingChunks.push(event);
+      ensureWorklet(event.sample_rate).catch((e) => {
+        console.error('[AudioPlayer] Failed to initialize AudioWorklet:', e);
+      });
+      return;
+    }
+
     try {
-      playAudioChunk(event.data, event.sample_rate, event.channels);
+      workletNode!.port.postMessage(
+        { pcmData: event.data, channels: event.channels, sampleRate: event.sample_rate },
+        [event.data],
+      );
     } catch (e) {
-      console.error('[AudioPlayer] Failed to play audio:', e);
+      console.error('[AudioPlayer] Failed to send audio to worklet:', e);
     }
   }
 
@@ -45,9 +60,16 @@
     const unlisten = transport.on('audio-data', handleAudioData);
     return () => {
       unlisten();
+      if (workletNode) {
+        workletNode.disconnect();
+        workletNode = null;
+      }
       if (audioContext) {
         audioContext.close();
+        audioContext = null;
       }
+      workletReady = false;
+      pendingChunks = [];
     };
   });
 </script>
