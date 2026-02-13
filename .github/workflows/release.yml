@@ -70,7 +70,7 @@ jobs:
         with:
           name: macos-${{ matrix.target }}
           path: |
-            app/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            target/${{ matrix.target }}/release/bundle/**/*.dmg
 
   build-macos-universal:
     needs: build-macos
@@ -123,21 +123,16 @@ jobs:
         run: cd ui && bun install && cd ../app && bun install
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: app
-          tauriScript: bun run tauri
+        run: cd app && bun run tauri build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux
           path: |
-            app/src-tauri/target/release/bundle/**/*.AppImage
-            app/src-tauri/target/release/bundle/**/*.deb
-            app/src-tauri/target/release/bundle/**/*.rpm
+            target/release/bundle/**/*.AppImage
+            target/release/bundle/**/*.deb
+            target/release/bundle/**/*.rpm
 
   build-windows:
     runs-on: windows-latest
@@ -167,20 +162,15 @@ jobs:
           Remove-Item $certPath
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: app
-          tauriScript: bun run tauri
+        run: cd app && bun run tauri build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows
           path: |
-            app/src-tauri/target/release/bundle/**/*.msi
-            app/src-tauri/target/release/bundle/**/*.exe
+            target/release/bundle/**/*.msi
+            target/release/bundle/**/*.exe
 
   # ---------- Mobile ----------
 
