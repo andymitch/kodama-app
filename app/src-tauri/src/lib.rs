@@ -4,6 +4,7 @@
 //! The Svelte UI communicates entirely over WebSocket and REST — no Tauri IPC
 //! is needed for video, audio, or telemetry.
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -133,17 +134,56 @@ async fn start_embedded_server(ui_path: Option<PathBuf>) -> anyhow::Result<()> {
                 let mut manager = StorageManager::new(storage_config, backend);
                 manager.start_cleanup_task();
 
-                // Spawn storage recording task
+                // Spawn storage with per-camera fan-out.
+                //
+                // The global broadcast has a single shared buffer. If the
+                // storage task blocks on disk I/O, its broadcast cursor falls
+                // behind and it lags for ALL cameras. Instead, we drain the
+                // broadcast as fast as possible into per-camera mpsc channels.
+                // Each camera gets its own bounded buffer so a slow write for
+                // one camera doesn't starve others.
                 let storage_handle = handle.clone();
+                let manager = Arc::new(tokio::sync::Mutex::new(manager));
+
+                // Fast drain: broadcast -> per-camera mpsc
                 tokio::spawn(async move {
                     let mut rx = storage_handle.subscribe();
+                    let mut camera_txs: HashMap<
+                        kodama::SourceId,
+                        tokio::sync::mpsc::Sender<kodama::Frame>,
+                    > = HashMap::new();
+
                     loop {
                         match rx.recv().await {
                             Ok(frame) => {
-                                let _ = manager.store(&frame).await;
+                                let source = frame.source;
+                                let tx = camera_txs.entry(source).or_insert_with(|| {
+                                    let (tx, mut rx) =
+                                        tokio::sync::mpsc::channel::<kodama::Frame>(256);
+                                    let mgr = manager.clone();
+                                    tokio::spawn(async move {
+                                        while let Some(f) = rx.recv().await {
+                                            let mut m = mgr.lock().await;
+                                            let _ = m.store(&f).await;
+                                        }
+                                    });
+                                    tracing::info!(camera = ?source, "Storage channel created");
+                                    tx
+                                });
+
+                                // try_send: if this camera's buffer is full, drop
+                                // the frame rather than blocking the drain loop
+                                if let Err(tokio::sync::mpsc::error::TrySendError::Full(_)) =
+                                    tx.try_send(frame)
+                                {
+                                    tracing::debug!(
+                                        camera = ?source,
+                                        "Storage buffer full, dropping frame"
+                                    );
+                                }
                             }
                             Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                                tracing::warn!("Storage lagged, missed {} frames", n);
+                                tracing::warn!("Storage broadcast lagged, missed {} frames", n);
                             }
                             Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                         }
