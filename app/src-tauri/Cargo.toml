@@ -17,12 +17,9 @@ tauri-build = { version = "2", features = [] }
 kodama = { workspace = true }
 tauri = { version = "2", features = ["devtools"] }
 tokio = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-iroh = { workspace = true }
 
 [features]
 default = ["custom-protocol"]

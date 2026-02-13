@@ -37,6 +37,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+
       - name: Setup bun
         uses: oven-sh/setup-bun@v2
 
@@ -45,13 +48,6 @@ jobs:
 
       - name: Build UI
         run: cd ui && bun run build
-
-      - name: Pin crypto dependencies
-        run: |
-          cargo update -p sha2 --precise 0.11.0-rc.4 || \
-            cargo update -p sha2@0.11.0-rc.4 --precise 0.11.0-rc.4 || true
-          cargo update -p digest --precise 0.11.0-rc.9 || \
-            cargo update -p digest@0.11.0-rc.9 --precise 0.11.0-rc.9 || true
 
       - name: Cargo check
         run: cargo check --workspace

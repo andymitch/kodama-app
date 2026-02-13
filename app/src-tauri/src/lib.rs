@@ -1,7 +1,7 @@
 //! Kodama App - Tauri desktop application
 //!
 //! Embeds a full Kodama server (Iroh + axum web) and opens a webview to it.
-//! The SvelteKit UI communicates entirely over WebSocket and REST — no Tauri IPC
+//! The Svelte UI communicates entirely over WebSocket and REST — no Tauri IPC
 //! is needed for video, audio, or telemetry.
 
 use std::net::SocketAddr;

@@ -19,7 +19,6 @@ Thumbs.db
 **/node_modules/
 **/dist/
 **/src-tauri/gen/
-**/.svelte-kit/
 ui/build/
 
 # Package manager lockfiles
