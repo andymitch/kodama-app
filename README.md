@@ -1,8 +1,25 @@
 # Kodama App
 
+[![CI](https://github.com/andymitch/kodama-app/actions/workflows/ci.yml/badge.svg)](https://github.com/andymitch/kodama-app/actions/workflows/ci.yml)
+[![Release](https://github.com/andymitch/kodama-app/actions/workflows/release.yml/badge.svg)](https://github.com/andymitch/kodama-app/actions/workflows/release.yml)
+[![Latest](https://img.shields.io/github/v/release/andymitch/kodama-app?include_prereleases&label=latest)](https://github.com/andymitch/kodama-app/releases/latest)
+[![License](https://img.shields.io/badge/license-BSL--1.1-blue.svg)](LICENSE)
+
 Desktop and mobile application for [Kodama](https://github.com/andymitch/kodama), a privacy-focused P2P security camera system.
 
 Built with [Tauri v2](https://tauri.app), the app embeds a full Kodama server and presents a [Svelte 5](https://svelte.dev) UI for managing cameras, viewing live streams, and reviewing recordings. The UI communicates entirely over WebSocket and REST — no Tauri IPC is needed for video, audio, or telemetry.
+
+### Download
+
+| Platform | Download |
+|---|---|
+| macOS (Apple Silicon) | [`Kodama_x.x.x_aarch64.dmg`](https://github.com/andymitch/kodama-app/releases/latest) |
+| macOS (Intel) | [`Kodama_x.x.x_x64.dmg`](https://github.com/andymitch/kodama-app/releases/latest) |
+| Linux (deb) | [`Kodama_x.x.x_amd64.deb`](https://github.com/andymitch/kodama-app/releases/latest) |
+| Linux (AppImage) | [`Kodama_x.x.x_amd64.AppImage`](https://github.com/andymitch/kodama-app/releases/latest) |
+| Linux (rpm) | [`Kodama-x.x.x-1.x86_64.rpm`](https://github.com/andymitch/kodama-app/releases/latest) |
+| Windows (exe) | [`Kodama_x.x.x_x64-setup.exe`](https://github.com/andymitch/kodama-app/releases/latest) |
+| Windows (msi) | [`Kodama_x.x.x_x64_en-US.msi`](https://github.com/andymitch/kodama-app/releases/latest) |
 
 ## Quick Start
 
@@ -70,14 +87,9 @@ cd ui && bun install && bun run build
 KODAMA_UI_PATH=./ui/build kodama-server
 ```
 
-## Releases
+## Related
 
-Releases are built automatically via GitHub Actions when a `v*` tag is pushed. Current platforms:
-
-- **macOS** — `.dmg` (aarch64 + x86_64)
-- **Linux** — `.AppImage`, `.deb`, `.rpm`
-- **Windows** — `.msi`, `.exe`
-- **iOS / Android** — Built when platform support is initialized (`tauri ios init` / `tauri android init`)
+- [kodama](https://github.com/andymitch/kodama) — Core library, headless server, and camera firmware (MIT / Apache-2.0)
 
 ## License
 
