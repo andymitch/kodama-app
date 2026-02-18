@@ -71,6 +71,6 @@ export interface RecordingSegment {
   type: 'motion' | 'alert' | 'continuous';
 }
 
-export type GridLayout = 'auto' | '2x2' | '1+5';
+export type GridLayout = 'auto' | '1+5';
 export type MarkerMode = 'dot' | 'detailed' | 'pip';
 export type ViewMode = 'live' | 'map';

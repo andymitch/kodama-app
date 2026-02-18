@@ -1,7 +1,6 @@
 <script lang="ts">
 	import VideoPlayer from '$lib/components/VideoPlayer.svelte';
 	import AudioPlayer from '$lib/components/AudioPlayer.svelte';
-	import AudioMeter from '$lib/components/AudioMeter.svelte';
 	import { cameraStore } from '$lib/stores/cameras.svelte.js';
 	import { cn } from '$lib/utils.js';
 
@@ -19,18 +18,19 @@
 
 	let isSelected = $derived(cameraStore.selectedId === sourceId);
 	let camera = $derived(cameraStore.cameras.find((c) => c.id === sourceId));
+	let muted = $state(true);
 </script>
 
 <button
 	class={cn(
-		"relative overflow-hidden rounded-lg bg-black group cursor-pointer transition-all",
+		"relative overflow-hidden rounded-lg bg-black group cursor-pointer transition-all w-full aspect-video",
 		isSelected ? "ring-2 ring-primary" : "ring-1 ring-border/50 hover:ring-border",
 		featured ? "col-span-2 row-span-2" : ""
 	)}
 	onclick={() => cameraStore.select(sourceId)}
 >
 	<!-- Video feed -->
-	<div class="aspect-video w-full">
+	<div class="absolute inset-0">
 		<VideoPlayer {sourceId} />
 	</div>
 
@@ -68,9 +68,14 @@
 		</div>
 	</div>
 
-	<!-- Audio (invisible) -->
-	<AudioPlayer {sourceId} />
-	<div class="absolute bottom-2 right-2 w-16 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-		<AudioMeter {sourceId} />
+	<!-- Audio -->
+	<AudioPlayer {sourceId} {muted} />
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+		onclick={(e) => { e.stopPropagation(); muted = !muted; }}
+	>
+		<span class="text-xs text-white/70 drop-shadow-sm">{muted ? '🔇' : '🔊'}</span>
 	</div>
 </button>

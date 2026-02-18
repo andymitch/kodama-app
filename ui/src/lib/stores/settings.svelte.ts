@@ -14,7 +14,7 @@ class SettingsStore {
 				this.theme = saved;
 			}
 			const savedGrid = localStorage.getItem('kodama-grid');
-			if (savedGrid === 'auto' || savedGrid === '2x2' || savedGrid === '1+5') {
+			if (savedGrid === 'auto' || savedGrid === '1+5') {
 				this.gridLayout = savedGrid;
 			}
 		}
@@ -50,6 +50,10 @@ class SettingsStore {
 		if (typeof window !== 'undefined') {
 			localStorage.setItem('kodama-grid', layout);
 		}
+	}
+
+	setMarkerMode(mode: MarkerMode) {
+		this.markerMode = mode;
 	}
 
 	setView(view: ViewMode) {

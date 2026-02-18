@@ -39,7 +39,7 @@ class CameraStore {
 	}
 
 	select(id: string | null) {
-		this.selectedId = id;
+		this.selectedId = this.selectedId === id ? null : id;
 	}
 }
 

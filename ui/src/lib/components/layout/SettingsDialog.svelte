@@ -14,11 +14,13 @@
 	} = $props();
 
 	let status = $state<ServerStatus | null>(null);
+	let statusError = $state(false);
 
 	$effect(() => {
 		if (!open) return;
+		statusError = false;
 		const transport = transportStore.getTransport();
-		transport.getStatus().then((s) => (status = s)).catch(() => {});
+		transport.getStatus().then((s) => (status = s)).catch(() => { statusError = true; });
 	});
 
 	function formatUptime(secs: number): string {
@@ -99,6 +101,8 @@
 							</div>
 						</div>
 					</div>
+				{:else if statusError}
+					<p class="text-xs text-muted-foreground">Server unreachable</p>
 				{:else}
 					<p class="text-xs text-muted-foreground">Loading server status...</p>
 				{/if}

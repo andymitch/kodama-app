@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { cameraStore } from '$lib/stores/cameras.svelte.js';
 	import { settingsStore } from '$lib/stores/settings.svelte.js';
+	import { thumbnailStore } from '$lib/stores/thumbnails.svelte.js';
 	import CameraMarker from './CameraMarker.svelte';
 	import type L from 'leaflet';
 
@@ -39,7 +40,20 @@
 			attributionControl: false,
 		});
 
+		// Click empty map area to deselect
+		map.on('click', () => {
+			cameraStore.select(null);
+		});
+
 		updateTileLayer();
+
+		// Invalidate map size when container becomes visible (hidden→shown via CSS)
+		const ro = new ResizeObserver(() => {
+			if (mapEl.offsetHeight > 0) map?.invalidateSize();
+		});
+		ro.observe(mapEl);
+
+		return () => ro.disconnect();
 	});
 
 	function updateTileLayer() {
@@ -75,7 +89,7 @@
 	});
 </script>
 
-<div class="relative h-full w-full">
+<div class="relative h-full w-full isolate">
 	<div bind:this={mapEl} class="h-full w-full"></div>
 
 	<!-- Tile toggle -->
@@ -100,6 +114,9 @@
 				connected={camera.connected}
 				selected={cameraStore.selectedId === camera.id}
 				mode={settingsStore.markerMode}
+				telemetry={camera.telemetry!}
+				sourceId={camera.id}
+				thumbnail={thumbnailStore.get(camera.id)}
 				onSelect={() => cameraStore.select(camera.id)}
 			/>
 		{/each}

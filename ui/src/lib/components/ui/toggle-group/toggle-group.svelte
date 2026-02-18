@@ -14,9 +14,10 @@
 		children?: Snippet;
 	} = $props();
 
-	const ctx = $state({ value });
-	$effect(() => { ctx.value = value; });
-	$effect(() => { value = ctx.value; });
+	const ctx = {
+		get value() { return value; },
+		set value(v: string) { value = v; },
+	};
 	setContext("toggle-group", ctx);
 </script>
 

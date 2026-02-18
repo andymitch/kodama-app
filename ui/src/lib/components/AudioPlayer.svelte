@@ -2,14 +2,24 @@
   import { getTransport } from '$lib/transport-ws.js';
   import type { AudioDataEvent } from '$lib/types.js';
 
-  let { sourceId }: { sourceId: string } = $props();
+  let { sourceId, muted = true }: { sourceId: string; muted?: boolean } = $props();
 
   let audioContext: AudioContext | null = null;
+  let gainNode: GainNode | null = null;
   let nextPlayTime = 0;
+
+  $effect(() => {
+    if (gainNode) {
+      gainNode.gain.value = muted ? 0 : 1;
+    }
+  });
 
   function playAudioChunk(pcmData: ArrayBuffer, sampleRate: number, channels: number) {
     if (!audioContext) {
       audioContext = new AudioContext();
+      gainNode = audioContext.createGain();
+      gainNode.gain.value = muted ? 0 : 1;
+      gainNode.connect(audioContext.destination);
       nextPlayTime = audioContext.currentTime;
     }
 
@@ -24,7 +34,7 @@
 
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(audioContext.destination);
+    source.connect(gainNode!);
 
     const scheduleTime = Math.max(nextPlayTime, audioContext.currentTime);
     source.start(scheduleTime);

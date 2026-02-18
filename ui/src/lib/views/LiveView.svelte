@@ -9,22 +9,28 @@
 
 	let gridClass = $derived(() => {
 		switch (gridLayout) {
-			case '2x2':
-				return 'grid-cols-2 grid-rows-2';
 			case '1+5':
 				return 'grid-cols-3 grid-rows-2';
 			default: // auto
-				return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+				return 'grid-cols-[repeat(auto-fit,minmax(min(100%,28rem),1fr))]';
 		}
 	});
 
 	let cameras = $derived(cameraStore.cameras);
+
+	// For 1+5 layout, put selected camera first so it gets the featured (large) slot
+	let sortedCameras = $derived(() => {
+		if (gridLayout !== '1+5' || !cameraStore.selectedId) return cameras;
+		const selected = cameras.find((c) => c.id === cameraStore.selectedId);
+		if (!selected) return cameras;
+		return [selected, ...cameras.filter((c) => c.id !== cameraStore.selectedId)];
+	});
 </script>
 
-<div class="flex flex-col h-full">
+<div class="flex flex-col h-full overflow-hidden">
 	<!-- Video grid -->
-	<div class={cn("flex-1 grid gap-2 p-2 auto-rows-fr", gridClass())}>
-		{#each cameras as camera, i (camera.id)}
+	<div class={cn("flex-1 min-h-0 overflow-auto grid gap-2 p-2 content-start", gridClass())}>
+		{#each sortedCameras() as camera, i (camera.id)}
 			<CameraCard
 				sourceId={camera.id}
 				name={camera.name}

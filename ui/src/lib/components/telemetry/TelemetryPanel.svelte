@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { cameraStore } from '$lib/stores/cameras.svelte.js';
 	import Sparkline from './Sparkline.svelte';
 	import { cn } from '$lib/utils.js';
@@ -16,8 +17,12 @@
 	// Track history as telemetry updates
 	$effect(() => {
 		if (!telemetry) return;
-		cpuHistory = [...cpuHistory.slice(-(MAX_HISTORY - 1)), telemetry.cpu_usage];
-		memHistory = [...memHistory.slice(-(MAX_HISTORY - 1)), telemetry.memory_usage];
+		const cpu = telemetry.cpu_usage;
+		const mem = telemetry.memory_usage;
+		untrack(() => {
+			cpuHistory = [...cpuHistory.slice(-(MAX_HISTORY - 1)), cpu];
+			memHistory = [...memHistory.slice(-(MAX_HISTORY - 1)), mem];
+		});
 	});
 
 	function formatUptime(secs: number): string {
@@ -46,23 +51,19 @@
 {#if telemetry}
 	<div class="space-y-3 px-4 pb-4">
 		<!-- CPU + sparkline -->
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-2">
-				<span class="text-[10px] uppercase tracking-wider text-muted-foreground w-10">CPU</span>
-				<Sparkline data={cpuHistory} width={60} height={18} />
-			</div>
-			<span class={cn("text-xs font-mono font-medium", statusColor(telemetry.cpu_usage, 70, 90))}>
+		<div class="flex items-center gap-2">
+			<span class="text-[10px] uppercase tracking-wider text-muted-foreground w-8 shrink-0">CPU</span>
+			<Sparkline data={cpuHistory} height={18} class="flex-1" />
+			<span class={cn("text-xs font-mono font-medium shrink-0", statusColor(telemetry.cpu_usage, 70, 90))}>
 				{telemetry.cpu_usage.toFixed(1)}%
 			</span>
 		</div>
 
 		<!-- Memory + sparkline -->
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-2">
-				<span class="text-[10px] uppercase tracking-wider text-muted-foreground w-10">MEM</span>
-				<Sparkline data={memHistory} width={60} height={18} />
-			</div>
-			<span class={cn("text-xs font-mono font-medium", statusColor(telemetry.memory_usage, 70, 90))}>
+		<div class="flex items-center gap-2">
+			<span class="text-[10px] uppercase tracking-wider text-muted-foreground w-8 shrink-0">MEM</span>
+			<Sparkline data={memHistory} height={18} class="flex-1" />
+			<span class={cn("text-xs font-mono font-medium shrink-0", statusColor(telemetry.memory_usage, 70, 90))}>
 				{telemetry.memory_usage.toFixed(1)}%
 			</span>
 		</div>

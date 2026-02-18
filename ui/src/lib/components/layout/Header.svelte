@@ -4,22 +4,15 @@
 	import { transportStore } from '$lib/stores/transport.svelte.js';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Map, Video, Sun, Moon, Monitor, Grid2x2, LayoutGrid, LayoutDashboard, Menu, Settings } from 'lucide-svelte';
-	import SettingsDialog from './SettingsDialog.svelte';
+	import { Map, Video, LayoutGrid, LayoutDashboard, Menu, Settings, MapPin, Tag, MonitorPlay } from 'lucide-svelte';
 
 	let {
 		onMenuClick,
+		onSettingsClick,
 	}: {
 		onMenuClick?: () => void;
+		onSettingsClick?: () => void;
 	} = $props();
-
-	let settingsOpen = $state(false);
-
-	function cycleTheme() {
-		const order: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
-		const idx = order.indexOf(settingsStore.theme);
-		settingsStore.setTheme(order[(idx + 1) % order.length]);
-	}
 
 	let currentView = $derived(settingsStore.currentView);
 </script>
@@ -57,16 +50,28 @@
 		{#if currentView === 'live'}
 			<ToggleGroup bind:value={
 				() => settingsStore.gridLayout,
-				(v) => settingsStore.setGridLayout(v as 'auto' | '2x2' | '1+5')
-			} class="hidden sm:inline-flex">
+				(v) => settingsStore.setGridLayout(v as 'auto' | '1+5')
+			} class="hidden lg:inline-flex">
 				<ToggleGroupItem value="auto">
 					<LayoutGrid class="h-3.5 w-3.5" />
 				</ToggleGroupItem>
-				<ToggleGroupItem value="2x2">
-					<Grid2x2 class="h-3.5 w-3.5" />
-				</ToggleGroupItem>
 				<ToggleGroupItem value="1+5">
 					<LayoutDashboard class="h-3.5 w-3.5" />
+				</ToggleGroupItem>
+			</ToggleGroup>
+		{:else if currentView === 'map'}
+			<ToggleGroup bind:value={
+				() => settingsStore.markerMode,
+				(v) => settingsStore.setMarkerMode(v as 'dot' | 'detailed' | 'pip')
+			} class="hidden lg:inline-flex">
+				<ToggleGroupItem value="dot">
+					<MapPin class="h-3.5 w-3.5" />
+				</ToggleGroupItem>
+				<ToggleGroupItem value="detailed">
+					<Tag class="h-3.5 w-3.5" />
+				</ToggleGroupItem>
+				<ToggleGroupItem value="pip">
+					<MonitorPlay class="h-3.5 w-3.5" />
 				</ToggleGroupItem>
 			</ToggleGroup>
 		{/if}
@@ -78,20 +83,8 @@
 			<span>online</span>
 		</div>
 
-		<Button variant="ghost" size="icon" onclick={cycleTheme}>
-			{#if settingsStore.theme === 'dark'}
-				<Moon class="h-4 w-4" />
-			{:else if settingsStore.theme === 'light'}
-				<Sun class="h-4 w-4" />
-			{:else}
-				<Monitor class="h-4 w-4" />
-			{/if}
-		</Button>
-
-		<Button variant="ghost" size="icon" onclick={() => (settingsOpen = true)}>
+		<Button variant="ghost" size="icon" onclick={onSettingsClick}>
 			<Settings class="h-4 w-4" />
 		</Button>
 	</div>
 </header>
-
-<SettingsDialog bind:open={settingsOpen} />

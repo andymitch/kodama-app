@@ -20,7 +20,7 @@
     "tailwind-variants": "^0.3"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^4",
+    "@sveltejs/vite-plugin-svelte": "^5",
     "@tailwindcss/vite": "^4",
     "@types/leaflet": "^1.9.21",
     "svelte": "^5",

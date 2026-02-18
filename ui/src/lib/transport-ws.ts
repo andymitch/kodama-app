@@ -46,6 +46,8 @@ export class WebSocketTransport implements KodamaTransport {
   private _connected = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
+  /** Cache latest video-init per source so late-mounting VideoPlayers can replay it */
+  private videoInitCache = new Map<string, VideoInitEvent>();
 
   get connected(): boolean {
     return this._connected;
@@ -119,6 +121,7 @@ export class WebSocketTransport implements KodamaTransport {
       this.ws = null;
     }
     this._connected = false;
+    this.videoInitCache.clear();
   }
 
   on<E extends TransportEventName>(
@@ -130,6 +133,14 @@ export class WebSocketTransport implements KodamaTransport {
     }
     const set = this.listeners.get(event)!;
     set.add(cb as Listener<any>);
+
+    // Replay cached video-init events for late-mounting VideoPlayers
+    if (event === 'video-init') {
+      for (const cached of this.videoInitCache.values()) {
+        try { (cb as Listener<'video-init'>)(cached); } catch {}
+      }
+    }
+
     return () => set.delete(cb as Listener<any>);
   }
 
@@ -227,13 +238,15 @@ export class WebSocketTransport implements KodamaTransport {
     const height = view.getUint16(offset + 2, true);
     const initSegment = buf.slice(offset + 4);
 
-    this.emit('video-init', {
+    const initEvent: VideoInitEvent = {
       source_id: sourceId,
       codec,
       width,
       height,
       init_segment: initSegment,
-    });
+    };
+    this.videoInitCache.set(sourceId, initEvent);
+    this.emit('video-init', initEvent);
   }
 
   private parseVideoSegment(buf: ArrayBuffer): void {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getTransport } from '$lib/transport-ws.js';
+  import { thumbnailStore } from '$lib/stores/thumbnails.svelte.js';
   import type { VideoInitEvent, VideoSegmentEvent } from '$lib/types.js';
 
   let { sourceId }: { sourceId: string } = $props();
@@ -17,6 +18,22 @@
   let appendErrorCount = 0;
   let droppedSegments = 0;
   let liveEdgeTimer: ReturnType<typeof setInterval> | null = null;
+  let thumbnailTimer: ReturnType<typeof setInterval> | null = null;
+  let thumbCanvas: HTMLCanvasElement | null = null;
+
+  function captureThumbnail() {
+    if (!videoEl || videoEl.videoWidth === 0) return;
+    if (!thumbCanvas) thumbCanvas = document.createElement('canvas');
+    // 2x resolution for retina, displayed at 160x100 in PiP markers
+    thumbCanvas.width = 320;
+    thumbCanvas.height = 180;
+    const ctx = thumbCanvas.getContext('2d');
+    if (!ctx) return;
+    try {
+      ctx.drawImage(videoEl, 0, 0, 320, 180);
+      thumbnailStore.set(sourceId, thumbCanvas.toDataURL('image/jpeg', 0.85));
+    } catch {}
+  }
 
   function tryPlay() {
     if (playStarted || !videoEl) return;
@@ -141,6 +158,7 @@
       mediaSegmentsAppended = 0;
       appendErrorCount = 0;
       if (liveEdgeTimer) { clearInterval(liveEdgeTimer); liveEdgeTimer = null; }
+      if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
     }
 
     initInProgress = true;
@@ -167,6 +185,9 @@
         appendBuffer(initData);
         initialized = true;
         initInProgress = false;
+
+        if (thumbnailTimer) clearInterval(thumbnailTimer);
+        thumbnailTimer = setInterval(captureThumbnail, 1000);
 
         if (liveEdgeTimer) clearInterval(liveEdgeTimer);
         liveEdgeTimer = setInterval(() => {
@@ -209,6 +230,8 @@
       unlistenInit();
       unlistenSegment();
       if (liveEdgeTimer) { clearInterval(liveEdgeTimer); liveEdgeTimer = null; }
+      if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
+      thumbnailStore.remove(sourceId);
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }

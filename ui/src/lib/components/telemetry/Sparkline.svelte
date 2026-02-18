@@ -40,7 +40,6 @@
 <svg
 	class={cn("inline-block", className)}
 	viewBox="0 0 {width} {height}"
-	width={width}
 	height={height}
 	preserveAspectRatio="none"
 >
