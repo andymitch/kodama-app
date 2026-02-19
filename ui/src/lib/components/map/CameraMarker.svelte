@@ -39,6 +39,17 @@
 
 	let marker: L.Marker | null = null;
 
+	function escapeHtml(str: string): string {
+		return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+
+	function safeBgStyle(url: string | undefined): string {
+		if (!url) return '';
+		// Only allow data: URIs (from canvas.toDataURL) and https: URLs
+		if (!url.startsWith('data:image/') && !url.startsWith('https://')) return '';
+		return `background-image:url('${url.replace(/'/g, "\\'")}');background-size:cover;background-position:center`;
+	}
+
 	function createIcon() {
 		if (!leaflet) return null;
 
@@ -60,9 +71,7 @@
 		}
 
 		if (mode === 'pip') {
-			const bgStyle = thumbnail
-				? `background-image:url(${thumbnail});background-size:cover;background-position:center`
-				: '';
+			const bgStyle = safeBgStyle(thumbnail);
 			return leaflet.divIcon({
 				className: '',
 				html: `<div class="${cn(
@@ -73,7 +82,7 @@
 						<div class="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent px-2 pt-1 pb-3">
 							<div class="flex items-center gap-1">
 								<span class="${cn('h-1.5 w-1.5 rounded-full', connected ? 'bg-primary' : 'bg-destructive')}"></span>
-								<span class="text-[9px] text-white/90 font-medium truncate">${name}</span>
+								<span class="text-[9px] text-white/90 font-medium truncate">${escapeHtml(name)}</span>
 							</div>
 						</div>
 						<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1 pt-3">
@@ -99,7 +108,7 @@
 				selected ? 'ring-2 ring-primary' : ''
 			)}">
 				<span class="${cn('h-2 w-2 rounded-full flex-shrink-0', connected ? 'bg-primary' : 'bg-destructive')}"></span>
-				<span class="font-medium">${name}</span>
+				<span class="font-medium">${escapeHtml(name)}</span>
 				<span class="text-muted-foreground">·</span>
 				<span class="flex items-center gap-0.5 text-muted-foreground font-mono">${CPU_ICON}${cpu}%</span>
 				<span class="flex items-center gap-0.5 text-muted-foreground font-mono">${MEM_ICON}${mem}%</span>
@@ -132,11 +141,8 @@
 
 	// Update icon when mode/selected/connected/telemetry/thumbnail changes
 	$effect(() => {
-		void mode;
-		void selected;
-		void connected;
-		void telemetry;
-		void thumbnail;
+		// Access reactive props to establish dependencies
+		const _deps = [mode, selected, connected, telemetry, thumbnail];
 		const icon = createIcon();
 		if (marker && icon) marker.setIcon(icon);
 	});

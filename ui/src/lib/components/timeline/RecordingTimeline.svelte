@@ -84,6 +84,15 @@
 		aria-valuenow={hoverX !== null && containerWidth > 0 ? Math.round((hoverX / containerWidth) * 24) : 0}
 		onpointermove={handlePointerMove}
 		onpointerleave={() => (hoverX = null)}
+		onkeydown={(e) => {
+			if (!containerWidth) return;
+			const step = containerWidth / 24;
+			if (e.key === 'ArrowRight') {
+				hoverX = Math.min((hoverX ?? 0) + step, containerWidth);
+			} else if (e.key === 'ArrowLeft') {
+				hoverX = Math.max((hoverX ?? 0) - step, 0);
+			}
+		}}
 	>
 		<!-- Segments -->
 		{#each filteredSegments as seg (seg.camera_id + seg.start)}

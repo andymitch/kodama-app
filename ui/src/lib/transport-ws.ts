@@ -266,6 +266,11 @@ export class WebSocketTransport implements KodamaTransport {
     const json = new TextDecoder().decode(new Uint8Array(buf, 9));
     try {
       const data = JSON.parse(json);
+      // Validate required numeric fields exist
+      if (typeof data.cpu_usage !== 'number' || typeof data.memory_usage !== 'number') {
+        console.warn('[Transport] Malformed telemetry (missing required fields), skipping');
+        return;
+      }
       this.emit('telemetry', { source_id: sourceId, ...data });
     } catch (e) {
       console.error('[Transport] Failed to parse telemetry:', e);

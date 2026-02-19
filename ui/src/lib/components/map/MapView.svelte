@@ -29,13 +29,19 @@
 		let destroyed = false;
 
 		(async () => {
-			leaflet = (await import('leaflet')).default;
+			try {
+				leaflet = (await import('leaflet')).default;
+			} catch (e) {
+				console.error('[MapView] Failed to load Leaflet:', e);
+				return;
+			}
 			if (destroyed) return;
 
 			// Leaflet CSS
 			const link = document.createElement('link');
 			link.rel = 'stylesheet';
 			link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+			link.onerror = () => console.error('[MapView] Failed to load Leaflet CSS');
 			document.head.appendChild(link);
 
 			if (!mapEl?.isConnected) return;
@@ -80,13 +86,21 @@
 		tileLayer = leaflet.tileLayer(url, { maxZoom: 19 }).addTo(map);
 	}
 
-	// Fit to camera bounds when they update
+	// Track camera IDs with GPS so bounds only refit when cameras appear/disappear,
+	// not on every telemetry update.
+	let geoLocatedIds = $derived(
+		geoLocatedCameras.map((c) => c.id).join(',')
+	);
+
+	// Fit to camera bounds when the set of geolocated cameras changes
 	$effect(() => {
+		// Depend only on the ID list, not telemetry values
+		const _ids = geoLocatedIds;
 		if (!map || !leaflet || geoLocatedCameras.length === 0) return;
 		const bounds = leaflet.latLngBounds(
 			geoLocatedCameras.map((c) => [
-				c.telemetry!.gps!.latitude,
-				c.telemetry!.gps!.longitude,
+				c.telemetry?.gps?.latitude ?? 0,
+				c.telemetry?.gps?.longitude ?? 0,
 			] as [number, number])
 		);
 		map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
@@ -119,13 +133,13 @@
 			<CameraMarker
 				{map}
 				{leaflet}
-				lat={camera.telemetry!.gps!.latitude}
-				lng={camera.telemetry!.gps!.longitude}
+				lat={camera.telemetry?.gps?.latitude ?? 0}
+				lng={camera.telemetry?.gps?.longitude ?? 0}
 				name={camera.name}
 				connected={camera.connected}
 				selected={cameraStore.selectedId === camera.id}
 				mode={settingsStore.markerMode}
-				telemetry={camera.telemetry!}
+				telemetry={camera.telemetry}
 				sourceId={camera.id}
 				thumbnail={thumbnailStore.get(camera.id)}
 				onSelect={() => cameraStore.select(camera.id)}

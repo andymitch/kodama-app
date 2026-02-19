@@ -71,6 +71,10 @@ async fn main() -> Result<()> {
     tokio::signal::ctrl_c().await?;
     info!("Shutting down...");
 
+    for handle in handles {
+        handle.abort();
+    }
+
     Ok(())
 }
 
@@ -182,8 +186,13 @@ async fn run_camera(camera_idx: usize, server_key_str: &str) -> Result<()> {
                     motion_level: Some(0.0),
                 };
 
-                let payload = encode_telemetry(&telemetry)
-                    .expect("Failed to encode telemetry");
+                let payload = match encode_telemetry(&telemetry) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        tracing::warn!("[{}] Failed to encode telemetry: {}", camera_name, e);
+                        continue;
+                    }
+                };
 
                 let frame = Frame {
                     source: source_id,
