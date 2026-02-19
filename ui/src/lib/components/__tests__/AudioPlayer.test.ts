@@ -34,6 +34,10 @@ class MockAudioContext {
     MockAudioContext.instances.push(this);
   }
 
+  createGain() {
+    return { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } };
+  }
+
   close() {
     this.closed = true;
     return Promise.resolve();

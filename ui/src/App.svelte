@@ -1,41 +1,59 @@
 <script lang="ts">
-  import Dashboard from './pages/Dashboard.svelte';
-  import Settings from './pages/Settings.svelte';
+	import { transportStore } from '$lib/stores/transport.svelte.js';
+	import { settingsStore } from '$lib/stores/settings.svelte.js';
+	import Sidebar from '$lib/components/layout/Sidebar.svelte';
+	import Header from '$lib/components/layout/Header.svelte';
+	import MobileNav from '$lib/components/layout/MobileNav.svelte';
+	import SettingsDialog from '$lib/components/layout/SettingsDialog.svelte';
+	import LiveView from '$lib/views/LiveView.svelte';
+	import MapView from '$lib/views/MapView.svelte';
 
-  let hash = $state(window.location.hash || '#/');
+	let mobileNavOpen = $state(false);
+	let settingsOpen = $state(false);
 
-  function onHashChange() {
-    hash = window.location.hash || '#/';
-  }
+	// Apply theme on mount and when it changes
+	$effect(() => {
+		settingsStore.applyTheme();
+	});
 
-  $effect(() => {
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  });
+	// Listen for system theme changes
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const mq = window.matchMedia('(prefers-color-scheme: dark)');
+		const handler = () => {
+			if (settingsStore.theme === 'system') settingsStore.applyTheme();
+		};
+		mq.addEventListener('change', handler);
+		return () => mq.removeEventListener('change', handler);
+	});
 
-  let page = $derived(hash === '#/settings' ? 'settings' : 'dashboard');
+	// Connect transport on mount
+	$effect(() => {
+		transportStore.connect();
+		return () => transportStore.disconnect();
+	});
 </script>
 
-<div class="flex min-h-screen flex-col">
-  <header class="border-b border-border bg-card px-6 py-3">
-    <nav class="mx-auto flex max-w-6xl items-center justify-between">
-      <a href="#/" class="text-xl font-semibold text-primary">Kodama</a>
-      <div class="flex gap-6">
-        <a href="#/" class="text-sm text-muted-foreground transition-colors hover:text-foreground">
-          Dashboard
-        </a>
-        <a href="#/settings" class="text-sm text-muted-foreground transition-colors hover:text-foreground">
-          Settings
-        </a>
-      </div>
-    </nav>
-  </header>
+<div class="flex h-dvh overflow-hidden bg-background">
+	<!-- Sidebar (desktop only, hidden <768px) -->
+	<Sidebar />
 
-  <main class="mx-auto w-full max-w-6xl flex-1 p-6">
-    {#if page === 'settings'}
-      <Settings />
-    {:else}
-      <Dashboard />
-    {/if}
-  </main>
+	<!-- Mobile nav sheet -->
+	<MobileNav bind:open={mobileNavOpen} />
+
+	<!-- Main content area -->
+	<div class="flex flex-1 flex-col min-w-0">
+		<Header onMenuClick={() => (mobileNavOpen = true)} onSettingsClick={() => (settingsOpen = true)} />
+
+		<main class="flex-1 overflow-hidden relative">
+			<div class="absolute inset-0" class:hidden={settingsStore.currentView !== 'live'}>
+				<LiveView />
+			</div>
+			<div class="absolute inset-0" class:hidden={settingsStore.currentView !== 'map'}>
+				<MapView />
+			</div>
+		</main>
+	</div>
 </div>
+
+<SettingsDialog bind:open={settingsOpen} />

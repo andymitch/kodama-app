@@ -1,0 +1,17 @@
+[package]
+name = "camera-sim"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "camera-sim"
+path = "src/main.rs"
+
+[dependencies]
+kodama = { workspace = true, features = ["test-source"] }
+iroh = "0.96.1"
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+bytes = "1"

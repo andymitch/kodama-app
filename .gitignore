@@ -25,3 +25,6 @@ ui/build/
 **/package-lock.json
 **/bun.lock
 **/bun.lockb
+
+# Camera sim ephemeral keys
+.camera-keys/

@@ -2,13 +2,20 @@
   import { getTransport } from '$lib/transport-ws.js';
   import type { AudioDataEvent } from '$lib/types.js';
 
-  let { sourceId }: { sourceId: string } = $props();
+  let { sourceId, muted = true }: { sourceId: string; muted?: boolean } = $props();
 
   let audioContext: AudioContext | null = null;
+  let gainNode: GainNode | null = null;
   let workletNode: AudioWorkletNode | null = null;
   let workletReady = false;
   let initInProgress = false;
   let pendingChunks: AudioDataEvent[] = [];
+
+  $effect(() => {
+    if (gainNode) {
+      gainNode.gain.value = muted ? 0 : 1;
+    }
+  });
 
   async function ensureWorklet(sampleRate: number): Promise<void> {
     if (workletReady || initInProgress) return;
@@ -19,7 +26,10 @@
     workletNode = new AudioWorkletNode(audioContext, 'pcm-worklet-processor', {
       outputChannelCount: [2],
     });
-    workletNode.connect(audioContext.destination);
+    gainNode = audioContext.createGain();
+    gainNode.gain.value = muted ? 0 : 1;
+    workletNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
     workletReady = true;
 
     // Flush any chunks that arrived before the worklet was ready
@@ -63,6 +73,10 @@
       if (workletNode) {
         workletNode.disconnect();
         workletNode = null;
+      }
+      if (gainNode) {
+        gainNode.disconnect();
+        gainNode = null;
       }
       if (audioContext) {
         audioContext.close();

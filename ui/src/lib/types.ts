@@ -63,3 +63,14 @@ export interface ServerStatus {
   frames_broadcast: number;
   public_key?: string;
 }
+
+export interface RecordingSegment {
+  camera_id: string;
+  start: number; // epoch ms
+  end: number;   // epoch ms
+  type: 'motion' | 'alert' | 'continuous';
+}
+
+export type GridLayout = 'auto' | '1+5';
+export type MarkerMode = 'dot' | 'detailed' | 'pip';
+export type ViewMode = 'live' | 'map';

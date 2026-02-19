@@ -12,16 +12,22 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "bits-ui": "^2.15.8",
     "clsx": "^2",
+    "leaflet": "^1.9.4",
+    "lucide-svelte": "^0.574.0",
+    "mode-watcher": "^1.1.0",
+    "svelte-spa-router": "^4.0.1",
     "tailwind-merge": "^2",
     "tailwind-variants": "^0.3"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^4",
+    "@sveltejs/vite-plugin-svelte": "^5",
     "@tailwindcss/vite": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5.3.1",
+    "@types/leaflet": "^1.9.21",
     "jsdom": "^28.0.0",
     "svelte": "^5",
     "svelte-check": "^4",
