@@ -24,36 +24,47 @@
 		)
 	);
 
-	onMount(async () => {
-		leaflet = (await import('leaflet')).default;
+	onMount(() => {
+		let ro: ResizeObserver | null = null;
+		let destroyed = false;
 
-		// Leaflet CSS
-		const link = document.createElement('link');
-		link.rel = 'stylesheet';
-		link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-		document.head.appendChild(link);
+		(async () => {
+			leaflet = (await import('leaflet')).default;
+			if (destroyed) return;
 
-		map = leaflet.map(mapEl, {
-			center: [0, 0],
-			zoom: 3,
-			zoomControl: true,
-			attributionControl: false,
-		});
+			// Leaflet CSS
+			const link = document.createElement('link');
+			link.rel = 'stylesheet';
+			link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+			document.head.appendChild(link);
 
-		// Click empty map area to deselect
-		map.on('click', () => {
-			cameraStore.select(null);
-		});
+			if (!mapEl?.isConnected) return;
 
-		updateTileLayer();
+			map = leaflet.map(mapEl, {
+				center: [0, 0],
+				zoom: 3,
+				zoomControl: true,
+				attributionControl: false,
+			});
 
-		// Invalidate map size when container becomes visible (hidden→shown via CSS)
-		const ro = new ResizeObserver(() => {
-			if (mapEl.offsetHeight > 0) map?.invalidateSize();
-		});
-		ro.observe(mapEl);
+			// Click empty map area to deselect
+			map.on('click', () => {
+				cameraStore.select(null);
+			});
 
-		return () => ro.disconnect();
+			updateTileLayer();
+
+			// Invalidate map size when container becomes visible (hidden→shown via CSS)
+			ro = new ResizeObserver(() => {
+				if (mapEl.offsetHeight > 0) map?.invalidateSize();
+			});
+			ro.observe(mapEl);
+		})();
+
+		return () => {
+			destroyed = true;
+			ro?.disconnect();
+		};
 	});
 
 	function updateTileLayer() {

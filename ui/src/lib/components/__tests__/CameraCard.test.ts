@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
-import CameraCard from '../CameraCard.svelte';
+import CameraCard from '../camera/CameraCard.svelte';
+import { cameraStore } from '$lib/stores/cameras.svelte.js';
 
 vi.mock('$lib/transport-ws.js', () => import('$lib/__mocks__/transport-ws.js'));
 
@@ -16,6 +17,7 @@ vi.mock('$lib/transport-ws.js', () => import('$lib/__mocks__/transport-ws.js'));
 (globalThis as any).AudioContext = class {
   audioWorklet = { addModule: () => Promise.resolve() };
   destination = {};
+  createGain() { return { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } }; }
   close() { return Promise.resolve(); }
 };
 (globalThis as any).AudioWorkletNode = class {
@@ -29,6 +31,8 @@ import { resetMockTransport } from '$lib/__mocks__/transport-ws.js';
 describe('CameraCard', () => {
   beforeEach(() => {
     resetMockTransport();
+    cameraStore.cameras = [];
+    cameraStore.selectedId = null;
   });
 
   afterEach(() => {
@@ -40,14 +44,14 @@ describe('CameraCard', () => {
     expect(screen.getByText('Front Door')).toBeInTheDocument();
   });
 
-  it('shows "Live" badge when connected', () => {
+  it('shows "LIVE" badge when connected', () => {
     render(CameraCard, { props: { sourceId: 'cam1', name: 'Cam', connected: true } });
-    expect(screen.getByText('Live')).toBeInTheDocument();
+    expect(screen.getByText('LIVE')).toBeInTheDocument();
   });
 
-  it('shows "Offline" badge when disconnected', () => {
+  it('shows "OFF" badge when disconnected', () => {
     render(CameraCard, { props: { sourceId: 'cam1', name: 'Cam', connected: false } });
-    expect(screen.getByText('Offline')).toBeInTheDocument();
+    expect(screen.getByText('OFF')).toBeInTheDocument();
   });
 
   it('contains a video element (from VideoPlayer)', () => {
@@ -55,14 +59,18 @@ describe('CameraCard', () => {
     expect(container.querySelector('video')).toBeInTheDocument();
   });
 
-  it('renders AudioMeter component', () => {
-    const { container } = render(CameraCard, { props: { sourceId: 'cam1', name: 'Cam', connected: true } });
-    // AudioMeter renders a speaker icon
-    expect(screen.getByText('🔊')).toBeInTheDocument();
+  it('renders mute toggle (muted by default)', () => {
+    render(CameraCard, { props: { sourceId: 'cam1', name: 'Cam', connected: true } });
+    expect(screen.getByText('🔇')).toBeInTheDocument();
   });
 
-  it('renders TelemetryPanel waiting state', () => {
+  it('shows telemetry overlay when camera has telemetry data', () => {
+    cameraStore.cameras = [{ id: 'cam1', name: 'Cam', connected: true, telemetry: {
+      source_id: 'cam1', cpu_usage: 45, memory_usage: 62, disk_usage: 30,
+      uptime_secs: 3600, load_average: [1, 0.8, 0.6], cpu_temp: null, gps: null, motion_level: null,
+    }}];
     render(CameraCard, { props: { sourceId: 'cam1', name: 'Cam', connected: true } });
-    expect(screen.getByText('Waiting for telemetry...')).toBeInTheDocument();
+    expect(screen.getByText(/CPU 45%/)).toBeInTheDocument();
+    expect(screen.getByText(/Mem 62%/)).toBeInTheDocument();
   });
 });
