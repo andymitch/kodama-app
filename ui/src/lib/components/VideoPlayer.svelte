@@ -17,7 +17,6 @@
   let mediaSegmentsAppended = 0;
   let appendErrorCount = 0;
   let droppedSegments = 0;
-  let liveEdgeTimer: ReturnType<typeof setInterval> | null = null;
   let thumbnailTimer: ReturnType<typeof setInterval> | null = null;
   let thumbCanvas: HTMLCanvasElement | null = null;
 
@@ -58,11 +57,9 @@
 
     if (sourceBuffer.updating) {
       if (queue.length >= MAX_QUEUE_SIZE) {
-        queue.shift();
-        droppedSegments++;
-        if (droppedSegments % 100 === 0) {
-          console.warn('[VideoPlayer] Queue overflow, total dropped:', droppedSegments);
-        }
+        droppedSegments += queue.length;
+        queue.length = 0;
+        console.warn('[VideoPlayer] Queue overflow — flushed to live edge, total dropped:', droppedSegments);
       }
       queue.push(data);
       return;
@@ -95,7 +92,7 @@
       const bufferedEnd = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
       const behind = bufferedEnd - currentTime;
 
-      if (behind > 2) {
+      if (behind > 1) {
         videoEl.currentTime = bufferedEnd - 0.3;
       }
 
@@ -104,7 +101,22 @@
       }
     }
 
-    if (videoEl && sourceBuffer.buffered.length > 0) {
+    // Prioritize draining queued segments over buffer cleanup
+    if (queue.length > 0 && !sourceBuffer.updating) {
+      const next = queue.shift()!;
+      try {
+        sourceBuffer.appendBuffer(next);
+      } catch (e) {
+        appendErrorCount++;
+        if (appendErrorCount <= 3) {
+          console.error('Failed to append queued buffer (#' + appendErrorCount + '):', e);
+        }
+      }
+      return;
+    }
+
+    // Only clean up old buffer data when nothing is queued
+    if (videoEl && sourceBuffer.buffered.length > 0 && !sourceBuffer.updating) {
       const currentTime = videoEl.currentTime;
       const start = sourceBuffer.buffered.start(0);
       const end = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
@@ -114,22 +126,9 @@
         if (removeEnd > start) {
           try {
             sourceBuffer.remove(start, removeEnd);
-            return;
           } catch (e) {
             console.error('[VideoPlayer] Failed to remove buffer:', e);
           }
-        }
-      }
-    }
-
-    if (queue.length > 0 && !sourceBuffer.updating) {
-      const next = queue.shift()!;
-      try {
-        sourceBuffer.appendBuffer(next);
-      } catch (e) {
-        appendErrorCount++;
-        if (appendErrorCount <= 3) {
-          console.error('Failed to append queued buffer (#' + appendErrorCount + '):', e);
         }
       }
     }
@@ -157,7 +156,6 @@
       queue = [];
       mediaSegmentsAppended = 0;
       appendErrorCount = 0;
-      if (liveEdgeTimer) { clearInterval(liveEdgeTimer); liveEdgeTimer = null; }
       if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
     }
 
@@ -188,19 +186,6 @@
 
         if (thumbnailTimer) clearInterval(thumbnailTimer);
         thumbnailTimer = setInterval(captureThumbnail, 1000);
-
-        if (liveEdgeTimer) clearInterval(liveEdgeTimer);
-        liveEdgeTimer = setInterval(() => {
-          if (!videoEl || !sourceBuffer || sourceBuffer.buffered.length === 0) return;
-          const bufferedEnd = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
-          const behind = bufferedEnd - videoEl.currentTime;
-          if (behind > 3) {
-            videoEl.currentTime = bufferedEnd - 0.3;
-            if (videoEl.paused) {
-              videoEl.play().catch(() => {});
-            }
-          }
-        }, 1000);
       } catch (e) {
         console.error('[VideoPlayer] Failed to initialize:', e);
       }
@@ -229,7 +214,6 @@
     return () => {
       unlistenInit();
       unlistenSegment();
-      if (liveEdgeTimer) { clearInterval(liveEdgeTimer); liveEdgeTimer = null; }
       if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
       thumbnailStore.remove(sourceId);
       if (objectUrl) {
