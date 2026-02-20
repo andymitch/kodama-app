@@ -7,6 +7,7 @@
 	import { videoStatsStore } from '$lib/stores/videoStats.svelte.js';
 	import { cn } from '$lib/utils.js';
 	import { formatBitrateCompact } from '$lib/utils/format.js';
+	import { Camera, PictureInPicture2, Volume2, VolumeOff } from 'lucide-svelte';
 
 	let {
 		sourceId,
@@ -25,7 +26,7 @@
 	let stats = $derived(videoStatsStore.get(sourceId));
 	let muted = $derived(!isSelected);
 	let videoElement = $state<HTMLVideoElement | undefined>(undefined);
-	let cardEl = $state<HTMLButtonElement>(undefined as unknown as HTMLButtonElement);
+	let cardEl = $state<HTMLButtonElement | undefined>(undefined);
 	let isVisible = $state(true);
 
 	// Lazy rendering: pause video decode when card is off-screen
@@ -130,14 +131,18 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="absolute bottom-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-		<div class="cursor-pointer rounded bg-black/50 px-1.5 py-0.5" onclick={captureSnapshot} title="Save snapshot">
-			<span class="text-[10px] text-white/70">&#128247;</span>
+		<div class="cursor-pointer rounded bg-black/50 p-1" onclick={captureSnapshot} title="Save snapshot">
+			<Camera class="h-3 w-3 text-white/70" />
 		</div>
-		<div class="cursor-pointer rounded bg-black/50 px-1.5 py-0.5" onclick={togglePiP} title="Picture-in-Picture">
-			<span class="text-[10px] text-white/70">&#128250;</span>
+		<div class="cursor-pointer rounded bg-black/50 p-1" onclick={togglePiP} title="Picture-in-Picture">
+			<PictureInPicture2 class="h-3 w-3 text-white/70" />
 		</div>
-		<div class="rounded bg-black/50 px-1.5 py-0.5" title={muted ? 'Select to unmute' : 'Audio active'}>
-			<span class="text-[10px] text-white/70">{muted ? '🔇' : '🔊'}</span>
+		<div class="rounded bg-black/50 p-1" title={muted ? 'Select to unmute' : 'Audio active'}>
+			{#if muted}
+				<VolumeOff class="h-3 w-3 text-white/70" />
+			{:else}
+				<Volume2 class="h-3 w-3 text-white/70" />
+			{/if}
 		</div>
 	</div>
 

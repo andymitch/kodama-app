@@ -37,7 +37,8 @@
 		return () => clearInterval(interval);
 	});
 
-	// Force reactivity on tick so relativeTime re-evaluates
+	// _tick is unused inside the function but forces $derived to re-track it,
+	// causing relativeTime values to recompute every 30s
 	function getAlerts(_tick: number) {
 		return alertsStore.alerts;
 	}

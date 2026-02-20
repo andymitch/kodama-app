@@ -14,7 +14,7 @@
 
 	let hoverX = $state<number | null>(null);
 	let containerWidth = $state(0);
-	let containerEl = $state<HTMLDivElement>(undefined as unknown as HTMLDivElement);
+	let containerEl = $state<HTMLDivElement | undefined>(undefined);
 
 	// Timeline zoom levels in hours
 	const ZOOM_LEVELS = [1, 4, 8, 12, 24];
@@ -35,6 +35,7 @@
 	let playbackTime = $state<number | null>(null);
 	let playbackSpeed = $state(1);
 	const SPEEDS = [0.5, 1, 2, 4];
+	const ASSUMED_FPS = 30;
 
 	// Playback timer
 	$effect(() => {
@@ -111,11 +112,13 @@
 	}
 
 	function handlePointerMove(e: PointerEvent) {
+		if (!containerEl) return;
 		const rect = containerEl.getBoundingClientRect();
 		hoverX = e.clientX - rect.left;
 	}
 
 	function handleClick(e: MouseEvent) {
+		if (!containerEl) return;
 		const rect = containerEl.getBoundingClientRect();
 		const x = e.clientX - rect.left;
 		const t = posToTime(x);
@@ -132,7 +135,7 @@
 	function stepFrame(direction: number) {
 		if (playbackTime === null) playbackTime = now - 60_000;
 		playing = false;
-		playbackTime = Math.max(windowStart, Math.min((playbackTime ?? now) + direction * 1000 / 30, now));
+		playbackTime = Math.max(windowStart, Math.min((playbackTime ?? now) + direction * 1000 / ASSUMED_FPS, now));
 	}
 
 	function skipTime(seconds: number) {
@@ -236,17 +239,17 @@
 			aria-label="Recording timeline"
 			aria-valuemin={0}
 			aria-valuemax={windowHours}
-			aria-valuenow={hoverX !== null && containerWidth > 0 ? Math.round((hoverX / containerWidth) * windowHours) : 0}
+			aria-valuenow={playbackTime !== null ? Math.round(((playbackTime - windowStart) / windowMs) * windowHours) : 0}
 			onpointermove={handlePointerMove}
 			onpointerleave={() => (hoverX = null)}
 			onclick={handleClick}
 			onkeydown={(e) => {
-				if (!containerWidth) return;
-				const step = containerWidth / windowHours;
 				if (e.key === 'ArrowRight') {
-					hoverX = Math.min((hoverX ?? 0) + step, containerWidth);
+					e.preventDefault();
+					skipTime(1);
 				} else if (e.key === 'ArrowLeft') {
-					hoverX = Math.max((hoverX ?? 0) - step, 0);
+					e.preventDefault();
+					skipTime(-1);
 				} else if (e.key === ' ') {
 					e.preventDefault();
 					togglePlay();

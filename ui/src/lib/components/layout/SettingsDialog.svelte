@@ -7,6 +7,7 @@
 	import type { ServerStatus } from '$lib/types.js';
 	import { cameraConfigStore } from '$lib/stores/cameraConfig.svelte.js';
 	import { Sun, Moon, Monitor, Bug, Plus, Trash2 } from 'lucide-svelte';
+	import { formatUptime } from '$lib/utils/format.js';
 
 	let {
 		open = $bindable(false),
@@ -25,11 +26,6 @@
 		transport.getStatus().then((s) => (status = s)).catch(() => { statusError = true; });
 	});
 
-	function formatUptime(secs: number): string {
-		const h = Math.floor(secs / 3600);
-		const m = Math.floor((secs % 3600) / 60);
-		return `${h}h ${m}m`;
-	}
 </script>
 
 <Sheet bind:open>

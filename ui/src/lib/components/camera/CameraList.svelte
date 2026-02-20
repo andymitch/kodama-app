@@ -166,7 +166,7 @@
 						{#if camera.telemetry}
 							<div class="text-[10px] text-muted-foreground font-mono">
 								CPU {camera.telemetry.cpu_usage.toFixed(0)}%
-								{#if camera.telemetry.memory_usage}
+								{#if camera.telemetry.memory_usage != null}
 									&middot; Mem {camera.telemetry.memory_usage.toFixed(0)}%
 								{/if}
 							</div>

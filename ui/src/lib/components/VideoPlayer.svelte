@@ -171,6 +171,7 @@
     mediaSegmentsAppended = 0;
     appendErrorCount = 0;
     droppedSegments = 0;
+    initRetryCount = 0;
     if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
   }
 

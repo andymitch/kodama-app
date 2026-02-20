@@ -20,7 +20,7 @@
 	let showOverlay = $state(true);
 	let overlayTimer: ReturnType<typeof setTimeout> | null = null;
 	let isFullscreen = $state(false);
-	let containerEl = $state<HTMLDivElement>(undefined as unknown as HTMLDivElement);
+	let containerEl = $state<HTMLDivElement | undefined>(undefined);
 	let videoElement = $state<HTMLVideoElement | undefined>(undefined);
 
 	function goBack() {
