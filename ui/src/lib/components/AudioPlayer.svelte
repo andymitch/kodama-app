@@ -9,11 +9,18 @@
   let workletNode: AudioWorkletNode | null = null;
   let workletReady = false;
   let initInProgress = false;
-  let pendingChunks: AudioDataEvent[] = [];
+  let sampleRateHint = 0;
 
+  // When muted changes, update gain or initialize audio on first unmute
   $effect(() => {
     if (gainNode) {
       gainNode.gain.value = muted ? 0 : 1;
+    }
+    if (!muted && !workletReady && !initInProgress && sampleRateHint > 0) {
+      ensureWorklet(sampleRateHint);
+    }
+    if (!muted && audioContext && audioContext.state === 'suspended') {
+      audioContext.resume();
     }
   });
 
@@ -21,34 +28,38 @@
     if (workletReady || initInProgress) return;
     initInProgress = true;
 
-    audioContext = new AudioContext({ sampleRate });
-    await audioContext.audioWorklet.addModule('/pcm-worklet-processor.js');
-    workletNode = new AudioWorkletNode(audioContext, 'pcm-worklet-processor', {
-      outputChannelCount: [2],
-    });
-    gainNode = audioContext.createGain();
-    gainNode.gain.value = muted ? 0 : 1;
-    workletNode.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    workletReady = true;
-
-    // Flush any chunks that arrived before the worklet was ready
-    for (const chunk of pendingChunks) {
-      workletNode.port.postMessage(
-        { pcmData: chunk.data, channels: chunk.channels, sampleRate: chunk.sample_rate },
-        [chunk.data],
-      );
+    try {
+      audioContext = new AudioContext({ sampleRate });
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      await audioContext.audioWorklet.addModule('/pcm-worklet-processor.js');
+      workletNode = new AudioWorkletNode(audioContext, 'pcm-worklet-processor', {
+        outputChannelCount: [2],
+      });
+      gainNode = audioContext.createGain();
+      gainNode.gain.value = muted ? 0 : 1;
+      workletNode.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      workletReady = true;
+    } catch (e) {
+      console.error('[AudioPlayer] Failed to initialize AudioWorklet:', e);
+      initInProgress = false;
     }
-    pendingChunks = [];
   }
 
   function handleAudioData(event: AudioDataEvent) {
     if (event.source_id !== sourceId) return;
 
+    // Remember sample rate for deferred init
+    if (sampleRateHint === 0) {
+      sampleRateHint = event.sample_rate;
+    }
+
+    // Don't process audio when muted — skip worklet init and data transfer
+    if (muted) return;
+
     if (!workletReady) {
-      // Queue while worklet is initializing; clone the buffer since
-      // the original may be neutered by a prior transfer
-      pendingChunks.push(event);
       ensureWorklet(event.sample_rate).catch((e) => {
         console.error('[AudioPlayer] Failed to initialize AudioWorklet:', e);
       });
@@ -61,7 +72,7 @@
         [event.data],
       );
     } catch (e) {
-      console.error('[AudioPlayer] Failed to send audio to worklet:', e);
+      // Buffer may have been neutered — not fatal
     }
   }
 
@@ -83,7 +94,8 @@
         audioContext = null;
       }
       workletReady = false;
-      pendingChunks = [];
+      initInProgress = false;
+      sampleRateHint = 0;
     };
   });
 </script>

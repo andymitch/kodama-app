@@ -11,7 +11,7 @@
 	let gridClass = $derived(() => {
 		switch (gridLayout) {
 			case '1+5':
-				return 'grid-cols-3 grid-rows-2';
+				return 'grid-cols-3';
 			default: // auto
 				return 'grid-cols-[repeat(auto-fit,minmax(min(100%,28rem),1fr))]';
 		}
@@ -38,7 +38,8 @@
 
 <div class="flex flex-col h-full overflow-hidden">
 	<!-- Video grid -->
-	<div class={cn("flex-1 min-h-0 overflow-auto grid gap-2 p-2 content-start", gridClass())}>
+	<div class="flex-1 min-h-0 overflow-y-auto p-2">
+	<div class={cn("grid gap-3", gridClass())}>
 		{#each sortedCameras() as camera, i (camera.id)}
 			<CameraCard
 				sourceId={camera.id}
@@ -57,6 +58,7 @@
 				{/if}
 			</div>
 		{/if}
+	</div>
 	</div>
 
 	<!-- Recording timeline -->

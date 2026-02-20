@@ -15,7 +15,7 @@
 	let displayName = $derived(camera ? cameraConfigStore.getDisplayName(camera.id, camera.name) : '');
 	let stats = $derived(cameraId ? videoStatsStore.get(cameraId) : undefined);
 
-	let muted = $state(true);
+	let muted = $state(false);
 	let showOverlay = $state(true);
 	let overlayTimer: ReturnType<typeof setTimeout> | null = null;
 	let isFullscreen = $state(false);

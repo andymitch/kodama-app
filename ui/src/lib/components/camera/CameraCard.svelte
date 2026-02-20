@@ -22,7 +22,7 @@
 	let isSelected = $derived(cameraStore.selectedId === sourceId);
 	let camera = $derived(cameraStore.cameras.find((c) => c.id === sourceId));
 	let stats = $derived(videoStatsStore.get(sourceId));
-	let muted = $state(true);
+	let muted = $derived(!isSelected);
 	let videoElement = $state<HTMLVideoElement | undefined>(undefined);
 	let cardEl = $state<HTMLButtonElement>(undefined as unknown as HTMLButtonElement);
 	let isVisible = $state(true);
@@ -140,14 +140,14 @@
 		<div class="cursor-pointer rounded bg-black/50 px-1.5 py-0.5" onclick={togglePiP} title="Picture-in-Picture">
 			<span class="text-[10px] text-white/70">&#128250;</span>
 		</div>
-		<div class="cursor-pointer rounded bg-black/50 px-1.5 py-0.5" onclick={(e) => { e.stopPropagation(); muted = !muted; }}>
+		<div class="rounded bg-black/50 px-1.5 py-0.5" title={muted ? 'Select to unmute' : 'Audio active'}>
 			<span class="text-[10px] text-white/70">{muted ? '🔇' : '🔊'}</span>
 		</div>
 	</div>
 
 	<!-- Buffer health indicator -->
 	{#if stats && stats.droppedSegments > 0 && !settingsStore.debugMode}
-		<div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+		<div class="absolute top-8 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
 			<span class="text-[9px] text-yellow-400/80 font-mono bg-black/50 rounded px-1 py-0.5">
 				{stats.droppedSegments} dropped
 			</span>
