@@ -366,6 +366,8 @@ mod tests {
     }
 
     mod config_tests {
+        use std::path::PathBuf;
+
         #[test]
         fn default_buffer_capacity_is_512() {
             std::env::remove_var("KODAMA_BUFFER_SIZE");
