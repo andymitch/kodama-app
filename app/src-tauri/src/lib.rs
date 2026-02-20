@@ -163,7 +163,7 @@ async fn start_embedded_server(ui_path: Option<PathBuf>) -> anyhow::Result<()> {
                                     let mgr = manager.clone();
                                     tokio::spawn(async move {
                                         while let Some(f) = rx.recv().await {
-                                            let mut m = mgr.lock().await;
+                                            let m = mgr.lock().await;
                                             let _ = m.store(&f).await;
                                         }
                                     });

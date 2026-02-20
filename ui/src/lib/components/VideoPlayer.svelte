@@ -31,6 +31,9 @@
   /** Track recent segment sizes for bitrate estimation */
   let recentSegmentBytes: number[] = [];
   let lastSegmentTime = 0;
+  let initTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Pending init event for retry after sourceopen timeout */
+  let pendingInitEvent: VideoInitEvent | null = null;
 
   function captureThumbnail() {
     if (!videoEl || videoEl.videoWidth === 0) return;
@@ -146,32 +149,43 @@
     }
   }
 
+  function teardown() {
+    if (initTimeout) { clearTimeout(initTimeout); initTimeout = null; }
+    if (sourceBuffer) {
+      try { sourceBuffer.removeEventListener('updateend', onUpdateEnd); } catch {}
+      sourceBuffer = null;
+    }
+    if (mediaSource && mediaSource.readyState === 'open') {
+      try { mediaSource.endOfStream(); } catch {}
+    }
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = '';
+    }
+    initialized = false;
+    initInProgress = false;
+    playStarted = false;
+    queue = [];
+    mediaSegmentsAppended = 0;
+    appendErrorCount = 0;
+    if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
+  }
+
   function handleInit(event: VideoInitEvent) {
     if (event.source_id !== sourceId) return;
-    if (initInProgress) return;
+
+    // If init is in progress, store this event for potential retry
+    if (initInProgress) {
+      pendingInitEvent = event;
+      return;
+    }
 
     if (initialized) {
-      if (sourceBuffer) {
-        try { sourceBuffer.removeEventListener('updateend', onUpdateEnd); } catch {}
-        sourceBuffer = null;
-      }
-      if (mediaSource && mediaSource.readyState === 'open') {
-        try { mediaSource.endOfStream(); } catch {}
-      }
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-        objectUrl = '';
-      }
-      initialized = false;
-      initInProgress = false;
-      playStarted = false;
-      queue = [];
-      mediaSegmentsAppended = 0;
-      appendErrorCount = 0;
-      if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
+      teardown();
     }
 
     initInProgress = true;
+    pendingInitEvent = null;
     currentCodec = event.codec;
     currentWidth = event.width;
     currentHeight = event.height;
@@ -191,12 +205,29 @@
     objectUrl = URL.createObjectURL(mediaSource);
     videoEl.src = objectUrl;
 
+    // Timeout: if sourceopen doesn't fire within 3s, tear down and retry
+    initTimeout = setTimeout(() => {
+      if (!initialized && initInProgress) {
+        console.warn('[VideoPlayer] sourceopen timeout, retrying init for', sourceId);
+        teardown();
+        // Retry with the latest cached init event
+        const retryEvent = pendingInitEvent ?? event;
+        pendingInitEvent = null;
+        handleInit(retryEvent);
+      }
+    }, 3000);
+
     mediaSource.addEventListener('sourceopen', () => {
+      if (initTimeout) { clearTimeout(initTimeout); initTimeout = null; }
       if (!mediaSource) return;
       try {
         sourceBuffer = mediaSource.addSourceBuffer(codec);
         sourceBuffer.mode = 'sequence';
         sourceBuffer.addEventListener('updateend', onUpdateEnd);
+        sourceBuffer.addEventListener('error', () => {
+          console.error('[VideoPlayer] SourceBuffer error for', sourceId);
+          teardown();
+        });
         appendBuffer(initData);
         initialized = true;
         initInProgress = false;
@@ -205,7 +236,13 @@
         thumbnailTimer = setInterval(captureThumbnail, 1000);
       } catch (e) {
         console.error('[VideoPlayer] Failed to initialize:', e);
+        teardown();
       }
+    });
+
+    mediaSource.addEventListener('error', () => {
+      console.error('[VideoPlayer] MediaSource error for', sourceId);
+      teardown();
     });
   }
 
@@ -279,15 +316,9 @@
     return () => {
       unlistenInit();
       unlistenSegment();
-      if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
+      teardown();
       thumbnailStore.remove(sourceId);
       videoStatsStore.remove(sourceId);
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-      if (mediaSource && mediaSource.readyState === 'open') {
-        try { mediaSource.endOfStream(); } catch {}
-      }
     };
   });
 </script>
@@ -297,6 +328,13 @@
   class="w-full h-full object-contain bg-black"
   muted
   playsinline
+  onerror={() => {
+    if (videoEl?.error) {
+      console.warn('[VideoPlayer] Video error for', sourceId, ':', videoEl.error.message);
+      // Tear down and let next video-init event re-initialize
+      teardown();
+    }
+  }}
   onwaiting={() => {
     if (videoEl && sourceBuffer && sourceBuffer.buffered.length > 0) {
       const bufferedEnd = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
