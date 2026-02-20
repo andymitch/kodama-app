@@ -219,7 +219,9 @@
           return;
         }
         console.warn('[VideoPlayer] sourceopen timeout, retrying init for', sourceId, `(attempt ${initRetryCount}/${MAX_INIT_RETRIES})`);
+        const savedRetry = initRetryCount;
         teardown();
+        initRetryCount = savedRetry;
         const retryEvent = pendingInitEvent ?? event;
         pendingInitEvent = null;
         handleInit(retryEvent);
