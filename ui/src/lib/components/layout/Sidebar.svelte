@@ -5,9 +5,16 @@
 	import { ScrollArea } from '$lib/components/ui/scroll-area/index.js';
 	import CameraList from '$lib/components/camera/CameraList.svelte';
 	import TelemetryPanel from '$lib/components/telemetry/TelemetryPanel.svelte';
+	import AlertPanel from '$lib/components/alerts/AlertPanel.svelte';
 	import { cn } from '$lib/utils.js';
 
-	let { class: className }: { class?: string } = $props();
+	let {
+		class: className,
+		showAlerts = false,
+	}: {
+		class?: string;
+		showAlerts?: boolean;
+	} = $props();
 </script>
 
 <aside
@@ -17,34 +24,38 @@
 	)}
 	style="width: var(--sidebar-width)"
 >
-	<!-- Camera list -->
-	<div class="flex-1 min-h-0">
-		<div class="px-4 py-3">
-			<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-				Cameras
-				<span class="ml-2 text-primary">{cameraStore.onlineCount}</span>
-			</h2>
-		</div>
-		<ScrollArea class="flex-1 px-2">
-			<CameraList />
-		</ScrollArea>
-	</div>
-
-	<Separator />
-
-	<!-- Telemetry for selected camera -->
-	<div class="flex-shrink-0 overflow-y-auto max-h-[40%]">
-		{#if cameraStore.selected}
+	{#if showAlerts}
+		<AlertPanel />
+	{:else}
+		<!-- Camera list -->
+		<div class="flex-1 min-h-0">
 			<div class="px-4 py-3">
 				<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-					Telemetry
+					Cameras
+					<span class="ml-2 text-primary">{cameraStore.onlineCount}</span>
 				</h2>
 			</div>
-			<TelemetryPanel sourceId={cameraStore.selected.id} />
-		{:else}
-			<div class="px-4 py-6 text-xs text-muted-foreground text-center">
-				Select a camera to view telemetry
-			</div>
-		{/if}
-	</div>
+			<ScrollArea class="flex-1 px-2">
+				<CameraList />
+			</ScrollArea>
+		</div>
+
+		<Separator />
+
+		<!-- Telemetry for selected camera -->
+		<div class="flex-shrink-0 overflow-y-auto max-h-[40%]">
+			{#if cameraStore.selected}
+				<div class="px-4 py-3">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+						Telemetry
+					</h2>
+				</div>
+				<TelemetryPanel sourceId={cameraStore.selected.id} />
+			{:else}
+				<div class="px-4 py-6 text-xs text-muted-foreground text-center">
+					Select a camera to view telemetry
+				</div>
+			{/if}
+		</div>
+	{/if}
 </aside>

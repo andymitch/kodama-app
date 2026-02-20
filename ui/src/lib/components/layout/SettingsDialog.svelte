@@ -5,7 +5,8 @@
 	import { settingsStore } from '$lib/stores/settings.svelte.js';
 	import { transportStore } from '$lib/stores/transport.svelte.js';
 	import type { ServerStatus } from '$lib/types.js';
-	import { Sun, Moon, Monitor } from 'lucide-svelte';
+	import { cameraConfigStore } from '$lib/stores/cameraConfig.svelte.js';
+	import { Sun, Moon, Monitor, Bug, Plus, Trash2 } from 'lucide-svelte';
 
 	let {
 		open = $bindable(false),
@@ -15,6 +16,7 @@
 
 	let status = $state<ServerStatus | null>(null);
 	let statusError = $state(false);
+	let newGroupName = $state('');
 
 	$effect(() => {
 		if (!open) return;
@@ -71,6 +73,58 @@
 
 			<Separator />
 
+			<!-- Camera Groups -->
+			<div>
+				<h3 class="text-sm font-medium mb-3">Camera Groups</h3>
+				<div class="space-y-2">
+					{#each cameraConfigStore.groups as group (group.id)}
+						<div class="flex items-center gap-2">
+							<span class="text-xs flex-1 truncate">{group.name}</span>
+							<button
+								class="p-1 text-muted-foreground hover:text-destructive transition-colors"
+								onclick={() => cameraConfigStore.deleteGroup(group.id)}
+								aria-label="Delete group"
+							>
+								<Trash2 class="h-3.5 w-3.5" />
+							</button>
+						</div>
+					{/each}
+					{#if cameraConfigStore.groups.length === 0}
+						<p class="text-xs text-muted-foreground">No groups created yet</p>
+					{/if}
+					<div class="flex items-center gap-2 mt-2">
+						<input
+							type="text"
+							bind:value={newGroupName}
+							placeholder="New group name..."
+							class="flex-1 text-xs px-2 py-1.5 rounded border border-input bg-background"
+							onkeydown={(e) => {
+								if (e.key === 'Enter' && newGroupName.trim()) {
+									cameraConfigStore.addGroup(newGroupName);
+									newGroupName = '';
+								}
+							}}
+						/>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={!newGroupName.trim()}
+							onclick={() => {
+								if (newGroupName.trim()) {
+									cameraConfigStore.addGroup(newGroupName);
+									newGroupName = '';
+								}
+							}}
+						>
+							<Plus class="h-3.5 w-3.5" />
+						</Button>
+					</div>
+				</div>
+				<p class="text-xs text-muted-foreground mt-2">Groups let you organize cameras by location. Assign cameras via the sidebar camera list.</p>
+			</div>
+
+			<Separator />
+
 			<!-- Server status -->
 			<div>
 				<h3 class="text-sm font-medium mb-3">Server Status</h3>
@@ -106,6 +160,22 @@
 				{:else}
 					<p class="text-xs text-muted-foreground">Loading server status...</p>
 				{/if}
+			</div>
+
+			<Separator />
+
+			<!-- Debug mode -->
+			<div>
+				<h3 class="text-sm font-medium mb-3">Developer</h3>
+				<Button
+					variant={settingsStore.debugMode ? 'default' : 'outline'}
+					size="sm"
+					onclick={() => (settingsStore.debugMode = !settingsStore.debugMode)}
+				>
+					<Bug class="h-4 w-4 mr-1.5" />
+					Debug Overlay
+				</Button>
+				<p class="text-xs text-muted-foreground mt-1.5">Show video stats on camera cards (codec, bitrate, buffer)</p>
 			</div>
 
 			<Separator />

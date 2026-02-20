@@ -1,9 +1,15 @@
 <script lang="ts">
   import { getTransport } from '$lib/transport-ws.js';
   import { thumbnailStore } from '$lib/stores/thumbnails.svelte.js';
+  import { videoStatsStore } from '$lib/stores/videoStats.svelte.js';
   import type { VideoInitEvent, VideoSegmentEvent } from '$lib/types.js';
 
-  let { sourceId }: { sourceId: string } = $props();
+  let { sourceId, videoElement = $bindable(undefined), active = true }: {
+    sourceId: string;
+    videoElement?: HTMLVideoElement;
+    /** When false, video segments are discarded (for off-screen cameras) */
+    active?: boolean;
+  } = $props();
 
   let videoEl: HTMLVideoElement;
   let mediaSource: MediaSource | null = null;
@@ -19,6 +25,12 @@
   let droppedSegments = 0;
   let thumbnailTimer: ReturnType<typeof setInterval> | null = null;
   let thumbCanvas: HTMLCanvasElement | null = null;
+  let currentCodec = '';
+  let currentWidth = 0;
+  let currentHeight = 0;
+  /** Track recent segment sizes for bitrate estimation */
+  let recentSegmentBytes: number[] = [];
+  let lastSegmentTime = 0;
 
   function captureThumbnail() {
     if (!videoEl || videoEl.videoWidth === 0) return;
@@ -160,6 +172,11 @@
     }
 
     initInProgress = true;
+    currentCodec = event.codec;
+    currentWidth = event.width;
+    currentHeight = event.height;
+    recentSegmentBytes = [];
+    lastSegmentTime = 0;
 
     const initData = event.init_segment;
     const codec = `video/mp4; codecs="${event.codec}"`;
@@ -195,6 +212,12 @@
   function handleSegment(event: VideoSegmentEvent) {
     if (event.source_id !== sourceId) return;
 
+    // When inactive (off-screen), skip segment processing to save CPU/GPU
+    if (!active) {
+      droppedSegments++;
+      return;
+    }
+
     if (!initialized) {
       if (initInProgress) {
         queue.push(event.data);
@@ -203,8 +226,50 @@
     }
 
     if (!sourceBuffer) return;
+
+    // Track segment sizes for bitrate estimation
+    const now = performance.now();
+    recentSegmentBytes.push(event.data.byteLength);
+    if (lastSegmentTime === 0) lastSegmentTime = now;
+    // Keep last ~5 seconds of data
+    if (recentSegmentBytes.length > 150) {
+      recentSegmentBytes = recentSegmentBytes.slice(-150);
+    }
+
     appendBuffer(event.data);
   }
+
+  // Expose videoEl to parent via bindable prop
+  $effect(() => {
+    if (videoEl) videoElement = videoEl;
+  });
+
+  // Publish video stats periodically
+  $effect(() => {
+    const interval = setInterval(() => {
+      if (!initialized) return;
+      let bufferHealth = 0;
+      if (sourceBuffer && sourceBuffer.buffered.length > 0 && videoEl) {
+        const end = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
+        bufferHealth = Math.max(0, end - videoEl.currentTime);
+      }
+      // Estimate bitrate from recent segments
+      const totalBytes = recentSegmentBytes.reduce((a, b) => a + b, 0);
+      const elapsed = recentSegmentBytes.length > 0 ? (performance.now() - lastSegmentTime) / 1000 : 0;
+      const bitrateKbps = elapsed > 0 ? (totalBytes * 8) / elapsed / 1000 : 0;
+
+      videoStatsStore.update(sourceId, {
+        width: currentWidth,
+        height: currentHeight,
+        codec: currentCodec,
+        segmentsAppended: mediaSegmentsAppended,
+        droppedSegments,
+        bufferHealth,
+        bitrateKbps,
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  });
 
   $effect(() => {
     const transport = getTransport();
@@ -216,6 +281,7 @@
       unlistenSegment();
       if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
       thumbnailStore.remove(sourceId);
+      videoStatsStore.remove(sourceId);
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }

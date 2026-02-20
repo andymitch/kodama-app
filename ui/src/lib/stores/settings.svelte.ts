@@ -6,6 +6,10 @@ class SettingsStore {
 	markerMode = $state<MarkerMode>('detailed');
 	sidebarOpen = $state(true);
 	currentView = $state<ViewMode>('live');
+	/** Camera ID for the single-camera fullscreen view */
+	focusedCameraId = $state<string | null>(null);
+	/** Show debug stats overlay on camera cards */
+	debugMode = $state(false);
 
 	constructor() {
 		if (typeof window !== 'undefined') {
@@ -58,6 +62,19 @@ class SettingsStore {
 
 	setView(view: ViewMode) {
 		this.currentView = view;
+		if (view !== 'camera') {
+			this.focusedCameraId = null;
+		}
+	}
+
+	openCameraView(cameraId: string) {
+		this.focusedCameraId = cameraId;
+		this.currentView = 'camera';
+	}
+
+	closeCameraView() {
+		this.focusedCameraId = null;
+		this.currentView = 'live';
 	}
 
 	toggleSidebar() {

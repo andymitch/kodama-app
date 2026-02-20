@@ -73,4 +73,4 @@ export interface RecordingSegment {
 
 export type GridLayout = 'auto' | '1+5';
 export type MarkerMode = 'dot' | 'detailed' | 'pip';
-export type ViewMode = 'live' | 'map';
+export type ViewMode = 'live' | 'map' | 'dashboard' | 'camera';
