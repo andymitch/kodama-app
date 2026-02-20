@@ -16,6 +16,7 @@
  *                          → audio level
  *   0x06 + source_id(8) + sample_rate(4) + channels(1) + pcm_data
  *                          → audio data
+ *   0x07 + JSON            → peer event (connect/disconnect, mapped to camera-event for cameras)
  */
 
 import type {
@@ -36,6 +37,7 @@ const MSG_VIDEO_SEGMENT = 0x03;
 const MSG_TELEMETRY = 0x04;
 const MSG_AUDIO_LEVEL = 0x05;
 const MSG_AUDIO_DATA = 0x06;
+const MSG_PEER_EVENT = 0x07;
 
 type Listener<E extends TransportEventName = TransportEventName> = (data: TransportEvents[E]) => void;
 
@@ -206,6 +208,9 @@ export class WebSocketTransport implements KodamaTransport {
       case MSG_AUDIO_DATA:
         this.parseAudioData(buf, view);
         break;
+      case MSG_PEER_EVENT:
+        this.parsePeerEvent(buf);
+        break;
     }
   }
 
@@ -293,6 +298,23 @@ export class WebSocketTransport implements KodamaTransport {
     const channels = view.getUint8(13);
     const data = buf.slice(14);
     this.emit('audio-data', { source_id: sourceId, data, sample_rate: sampleRate, channels });
+  }
+
+  private parsePeerEvent(buf: ArrayBuffer): void {
+    // 1(type) + JSON { type, key, role, source_id? }
+    const json = new TextDecoder().decode(new Uint8Array(buf, 1));
+    try {
+      const event = JSON.parse(json);
+      if (event.role === 'camera' && event.source_id) {
+        const connected = event.type === 'connected';
+        if (!connected) {
+          this.videoInitCache.delete(event.source_id);
+        }
+        this.emit('camera-event', { source_id: event.source_id, connected });
+      }
+    } catch (e) {
+      console.error('[Transport] Failed to parse peer event:', e);
+    }
   }
 
   private scheduleReconnect(url: string): void {

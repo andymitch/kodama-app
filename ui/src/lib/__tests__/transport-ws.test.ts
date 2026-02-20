@@ -453,6 +453,97 @@ describe('WebSocketTransport', () => {
       expect(event.data.byteLength).toBe(pcm.byteLength);
     });
 
+    it('parses 0x07 peer event for camera disconnect into camera-event', async () => {
+      const transport = await setupTransport();
+      const cb = vi.fn();
+      transport.on('camera-event', cb);
+
+      const peerEvent = { type: 'disconnected', key: 'k8afe...', role: 'camera', source_id: 'abc123' };
+      const json = JSON.stringify(peerEvent);
+      const jsonBytes = new TextEncoder().encode(json);
+      const buf = new ArrayBuffer(1 + jsonBytes.length);
+      new Uint8Array(buf)[0] = 0x07;
+      new Uint8Array(buf).set(jsonBytes, 1);
+
+      getWs().simulateBinary(buf);
+
+      expect(cb).toHaveBeenCalledTimes(1);
+      expect(cb).toHaveBeenCalledWith({ source_id: 'abc123', connected: false });
+    });
+
+    it('parses 0x07 peer event for camera connect into camera-event', async () => {
+      const transport = await setupTransport();
+      const cb = vi.fn();
+      transport.on('camera-event', cb);
+
+      const peerEvent = { type: 'connected', key: 'k8afe...', role: 'camera', source_id: 'abc123' };
+      const json = JSON.stringify(peerEvent);
+      const jsonBytes = new TextEncoder().encode(json);
+      const buf = new ArrayBuffer(1 + jsonBytes.length);
+      new Uint8Array(buf)[0] = 0x07;
+      new Uint8Array(buf).set(jsonBytes, 1);
+
+      getWs().simulateBinary(buf);
+
+      expect(cb).toHaveBeenCalledTimes(1);
+      expect(cb).toHaveBeenCalledWith({ source_id: 'abc123', connected: true });
+    });
+
+    it('ignores 0x07 peer event for non-camera roles', async () => {
+      const transport = await setupTransport();
+      const cb = vi.fn();
+      transport.on('camera-event', cb);
+
+      const peerEvent = { type: 'connected', key: 'j7afe...', role: 'client' };
+      const json = JSON.stringify(peerEvent);
+      const jsonBytes = new TextEncoder().encode(json);
+      const buf = new ArrayBuffer(1 + jsonBytes.length);
+      new Uint8Array(buf)[0] = 0x07;
+      new Uint8Array(buf).set(jsonBytes, 1);
+
+      getWs().simulateBinary(buf);
+
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    it('clears video init cache on camera disconnect peer event', async () => {
+      const transport = await setupTransport();
+      const initCb = vi.fn();
+
+      // First, send a video-init to populate the cache
+      const codec = 'avc1.42e01e';
+      const codecBytes = new TextEncoder().encode(codec);
+      const initPayload = new Uint8Array([0xAA, 0xBB]);
+      const totalLen = 1 + 8 + 1 + codecBytes.length + 2 + 2 + initPayload.length;
+      const initBuf = new ArrayBuffer(totalLen);
+      const initArr = new Uint8Array(initBuf);
+      const initView = new DataView(initBuf);
+      initArr[0] = 0x02;
+      // Use a source_id that matches what the peer event will send
+      // We'll use the hex source_id from the peer event JSON
+      initArr.set(makeSourceId(), 1);
+      initView.setUint8(9, codecBytes.length);
+      initArr.set(codecBytes, 10);
+      const offset = 10 + codecBytes.length;
+      initView.setUint16(offset, 640, true);
+      initView.setUint16(offset + 2, 480, true);
+      initArr.set(initPayload, offset + 4);
+      getWs().simulateBinary(initBuf);
+
+      // Now send a disconnect peer event for the same source_id
+      const peerEvent = { type: 'disconnected', key: 'k8afe...', role: 'camera', source_id: SOURCE_ID_HEX };
+      const json = JSON.stringify(peerEvent);
+      const jsonBytes = new TextEncoder().encode(json);
+      const buf = new ArrayBuffer(1 + jsonBytes.length);
+      new Uint8Array(buf)[0] = 0x07;
+      new Uint8Array(buf).set(jsonBytes, 1);
+      getWs().simulateBinary(buf);
+
+      // Subscribe after disconnect — should NOT receive cached init
+      transport.on('video-init', initCb);
+      expect(initCb).not.toHaveBeenCalled();
+    });
+
     it('ignores empty messages', async () => {
       const transport = await setupTransport();
       const cb = vi.fn();
