@@ -39,7 +39,7 @@
 
 	// Force reactivity on tick so relativeTime re-evaluates
 	function getAlerts(_tick: number) {
-		return alertsStore.recentAlerts;
+		return alertsStore.alerts;
 	}
 	let alerts = $derived(getAlerts(tick));
 </script>
@@ -59,7 +59,7 @@
 					Mark all read
 				</Button>
 			{/if}
-			{#if alertsStore.recentAlerts.length > 0}
+			{#if alertsStore.alerts.length > 0}
 				<Button variant="ghost" size="sm" class="h-6 text-[10px] px-2 text-destructive hover:text-destructive" onclick={() => alertsStore.clearAll()}>
 					Clear all
 				</Button>

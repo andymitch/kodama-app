@@ -59,7 +59,7 @@
 	);
 
 	// Generate hour markers based on zoom level
-	let hourMarkers = $derived(() => {
+	let hourMarkers = $derived.by(() => {
 		const count = windowHours + 1;
 		return Array.from({ length: count }, (_, i) => {
 			const t = windowStart + i * (windowMs / windowHours);
@@ -71,7 +71,7 @@
 	});
 
 	// Label interval based on zoom
-	let labelInterval = $derived(() => {
+	let labelInterval = $derived.by(() => {
 		if (windowHours <= 4) return 1;
 		if (windowHours <= 12) return 2;
 		return 3;
@@ -262,7 +262,7 @@
 			{/each}
 
 			<!-- Hour markers -->
-			{#each hourMarkers() as hour}
+			{#each hourMarkers as hour}
 				<div
 					class="absolute top-0 bottom-0 w-px bg-border/50"
 					style="left: {hour.x}%"
@@ -271,8 +271,8 @@
 
 			<!-- Hour labels -->
 			<div class="absolute inset-x-0 bottom-0 flex">
-				{#each hourMarkers() as hour, i}
-					{#if i % labelInterval() === 0}
+				{#each hourMarkers as hour, i}
+					{#if i % labelInterval === 0}
 						<span
 							class="absolute text-[9px] text-muted-foreground -translate-x-1/2"
 							style="left: {hour.x}%; bottom: 1px"

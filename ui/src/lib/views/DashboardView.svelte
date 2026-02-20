@@ -7,6 +7,7 @@
 	import Sparkline from '$lib/components/ui/Sparkline.svelte';
 	import type { ServerStatus } from '$lib/types.js';
 	import { cn } from '$lib/utils.js';
+	import { formatBitrate, formatUptime } from '$lib/utils/format.js';
 
 	let status = $state<ServerStatus | null>(null);
 
@@ -23,7 +24,7 @@
 	});
 
 	// Aggregate video stats across all cameras
-	let totalBitrate = $derived(() => {
+	let totalBitrate = $derived.by(() => {
 		let total = 0;
 		for (const cam of cameraStore.cameras) {
 			const stats = videoStatsStore.get(cam.id);
@@ -32,7 +33,7 @@
 		return total;
 	});
 
-	let totalDropped = $derived(() => {
+	let totalDropped = $derived.by(() => {
 		let total = 0;
 		for (const cam of cameraStore.cameras) {
 			const stats = videoStatsStore.get(cam.id);
@@ -45,7 +46,7 @@
 	let bitrateHistory = $state<number[]>([]);
 	$effect(() => {
 		const interval = setInterval(() => {
-			const current = totalBitrate();
+			const current = totalBitrate;
 			bitrateHistory = [...bitrateHistory.slice(-59), current];
 		}, 2000);
 		return () => clearInterval(interval);
@@ -68,7 +69,7 @@
 	});
 
 	// Per-camera stats for the table
-	let cameraStats = $derived(() => {
+	let cameraStats = $derived.by(() => {
 		return cameraStore.cameras.map((cam) => {
 			const stats = videoStatsStore.get(cam.id);
 			const displayName = cameraConfigStore.getDisplayName(cam.id, cam.name);
@@ -89,19 +90,6 @@
 		});
 	});
 
-	function formatBitrate(kbps: number): string {
-		if (kbps >= 1000) return `${(kbps / 1000).toFixed(1)} Mbps`;
-		if (kbps > 0) return `${kbps.toFixed(0)} kbps`;
-		return '0 kbps';
-	}
-
-	function formatUptime(secs: number): string {
-		const d = Math.floor(secs / 86400);
-		const h = Math.floor((secs % 86400) / 3600);
-		const m = Math.floor((secs % 3600) / 60);
-		if (d > 0) return `${d}d ${h}h ${m}m`;
-		return `${h}h ${m}m`;
-	}
 </script>
 
 <div class="h-full overflow-auto p-4 space-y-4">
@@ -119,7 +107,7 @@
 		<!-- Bandwidth -->
 		<div class="rounded-lg border bg-card p-4">
 			<div class="text-xs text-muted-foreground font-medium">Total Bandwidth</div>
-			<div class="text-2xl font-bold mt-1">{formatBitrate(totalBitrate())}</div>
+			<div class="text-2xl font-bold mt-1">{formatBitrate(totalBitrate)}</div>
 			<div class="mt-1">
 				<Sparkline data={bitrateHistory} color="hsl(var(--primary))" width={100} height={24} />
 			</div>
@@ -177,7 +165,7 @@
 			<div class="space-y-1.5">
 				<div class="flex justify-between text-sm">
 					<span>Total Dropped</span>
-					<span class={cn("font-mono", totalDropped() > 0 ? "text-yellow-500" : "text-primary")}>{totalDropped()}</span>
+					<span class={cn("font-mono", totalDropped > 0 ? "text-yellow-500" : "text-primary")}>{totalDropped}</span>
 				</div>
 				<div class="flex justify-between text-sm">
 					<span>Frames Broadcast</span>
@@ -225,7 +213,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each cameraStats() as cam (cam.id)}
+					{#each cameraStats as cam (cam.id)}
 						<tr class="border-b last:border-0 hover:bg-accent/30">
 							<td class="px-4 py-2 font-medium">{cam.name}</td>
 							<td class="px-3 py-2">
@@ -250,7 +238,7 @@
 							<td class="px-4 py-2 text-right font-mono">{cam.temp !== null ? `${cam.temp.toFixed(0)}\u00B0C` : '-'}</td>
 						</tr>
 					{/each}
-					{#if cameraStats().length === 0}
+					{#if cameraStats.length === 0}
 						<tr>
 							<td colspan="11" class="px-4 py-8 text-center text-muted-foreground">
 								No cameras connected

@@ -26,7 +26,7 @@
 	);
 
 	// Active filter applied
-	let filteredCameras = $derived(() => {
+	let filteredCameras = $derived.by(() => {
 		if (cameraConfigStore.activeGroupId === null) return sortedCameras;
 		return sortedCameras.filter(
 			(c) => cameraConfigStore.getGroupId(c.id) === cameraConfigStore.activeGroupId
@@ -93,7 +93,7 @@
 		</div>
 	{/if}
 
-	{#each filteredCameras() as camera (camera.id)}
+	{#each filteredCameras as camera (camera.id)}
 		{@const displayName = cameraConfigStore.getDisplayName(camera.id, camera.name)}
 		<div class="group/item relative">
 			{#if editingId === camera.id}
@@ -194,7 +194,7 @@
 		</div>
 	{/each}
 
-	{#if filteredCameras().length === 0}
+	{#if filteredCameras.length === 0}
 		<div class="px-3 py-8 text-center text-xs text-muted-foreground">
 			{#if cameraConfigStore.activeGroupId}
 				No cameras in this group

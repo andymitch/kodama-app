@@ -1,6 +1,7 @@
 import { getTransport } from '$lib/transport-ws.js';
 import type { KodamaTransport } from '$lib/transport.js';
 import { cameraStore } from './cameras.svelte.js';
+import { cameraConfigStore } from './cameraConfig.svelte.js';
 import { alertsStore } from './alerts.svelte.js';
 
 class TransportStore {
@@ -26,7 +27,7 @@ class TransportStore {
 			this.unsubs.push(
 				this.transport.on('camera-event', (ev) => {
 					const cam = cameraStore.cameras.find((c) => c.id === ev.source_id);
-					const name = cam?.name ?? ev.source_id;
+					const name = cameraConfigStore.getDisplayName(ev.source_id, cam?.name ?? ev.source_id);
 					const wasPreviouslyConnected = cam?.connected ?? false;
 
 					cameraStore.updateCamera(ev.source_id, ev.connected);
@@ -50,7 +51,7 @@ class TransportStore {
 						if (now - last > 30_000) {
 							this.lastMotionAlert.set(ev.source_id, now);
 							const cam = cameraStore.cameras.find((c) => c.id === ev.source_id);
-							const name = cam?.name ?? ev.source_id;
+							const name = cameraConfigStore.getDisplayName(ev.source_id, cam?.name ?? ev.source_id);
 							alertsStore.addAlert('motion', ev.source_id, name, `Motion detected (${(ev.motion_level * 100).toFixed(0)}%)`);
 						}
 					}

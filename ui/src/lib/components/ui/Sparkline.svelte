@@ -15,14 +15,14 @@
 		class?: string;
 	} = $props();
 
-	let points = $derived(() => {
+	let points = $derived.by(() => {
 		if (data.length < 2) return '';
 		const max = Math.max(...data, 1);
 		const step = width / (data.length - 1);
 		return data.map((v, i) => `${i * step},${height - (v / max) * (height - 2) - 1}`).join(' ');
 	});
 
-	let fillPoints = $derived(() => {
+	let fillPoints = $derived.by(() => {
 		if (data.length < 2) return '';
 		const max = Math.max(...data, 1);
 		const step = width / (data.length - 1);
@@ -39,7 +39,7 @@
 	aria-hidden="true"
 >
 	{#if data.length >= 2}
-		<polygon points={fillPoints()} fill={color} opacity="0.1" />
-		<polyline points={points()} fill="none" stroke={color} stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+		<polygon points={fillPoints} fill={color} opacity="0.1" />
+		<polyline points={points} fill="none" stroke={color} stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
 	{/if}
 </svg>

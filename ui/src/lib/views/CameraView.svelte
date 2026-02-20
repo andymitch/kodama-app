@@ -9,6 +9,7 @@
 	import { videoStatsStore } from '$lib/stores/videoStats.svelte.js';
 	import { ArrowLeft, Maximize, Minimize, Volume2, VolumeOff, Camera, PictureInPicture2 } from 'lucide-svelte';
 	import { cn } from '$lib/utils.js';
+	import { formatBitrate, formatUptime } from '$lib/utils/format.js';
 
 	let cameraId = $derived(settingsStore.focusedCameraId);
 	let camera = $derived(cameraId ? cameraStore.cameras.find((c) => c.id === cameraId) : null);
@@ -99,12 +100,6 @@
 		}
 	}
 
-	function formatBitrate(kbps: number): string {
-		if (kbps >= 1000) return `${(kbps / 1000).toFixed(1)} Mbps`;
-		if (kbps > 0) return `${kbps.toFixed(0)} kbps`;
-		return '';
-	}
-
 	// Auto-hide overlay on mount
 	$effect(() => {
 		resetOverlayTimer();
@@ -113,15 +108,6 @@
 		};
 	});
 
-	function formatUptime(secs: number): string {
-		const h = Math.floor(secs / 3600);
-		const m = Math.floor((secs % 3600) / 60);
-		if (h > 24) {
-			const d = Math.floor(h / 24);
-			return `${d}d ${h % 24}h`;
-		}
-		return `${h}h ${m}m`;
-	}
 </script>
 
 {#if cameraId && camera}

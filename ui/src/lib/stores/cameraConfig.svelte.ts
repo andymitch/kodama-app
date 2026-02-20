@@ -50,7 +50,7 @@ class CameraConfigStore {
 	rename(cameraId: string, name: string) {
 		const trimmed = name.trim();
 		const current = this.overrides[cameraId] ?? {};
-		if (!trimmed || trimmed === '') {
+		if (!trimmed) {
 			// Clear override if empty
 			delete current.displayName;
 		} else {

@@ -6,6 +6,7 @@
 	import { settingsStore } from '$lib/stores/settings.svelte.js';
 	import { videoStatsStore } from '$lib/stores/videoStats.svelte.js';
 	import { cn } from '$lib/utils.js';
+	import { formatBitrateCompact } from '$lib/utils/format.js';
 
 	let {
 		sourceId,
@@ -63,11 +64,6 @@
 		}
 	}
 
-	function formatBitrate(kbps: number): string {
-		if (kbps >= 1000) return `${(kbps / 1000).toFixed(1)}M`;
-		if (kbps > 0) return `${kbps.toFixed(0)}k`;
-		return '';
-	}
 </script>
 
 <button
@@ -99,7 +95,7 @@
 				{#if stats && stats.width > 0}
 					<span class="text-[9px] text-white/50 font-mono">{stats.width}x{stats.height}</span>
 					{#if stats.bitrateKbps > 0}
-						<span class="text-[9px] text-white/50 font-mono">{formatBitrate(stats.bitrateKbps)}</span>
+						<span class="text-[9px] text-white/50 font-mono">{formatBitrateCompact(stats.bitrateKbps)}</span>
 					{/if}
 				{/if}
 				<span class={cn(
@@ -159,7 +155,7 @@
 		<div class="absolute top-8 left-2 z-10 pointer-events-none">
 			<div class="bg-black/70 rounded px-1.5 py-1 text-[9px] font-mono text-green-400 leading-relaxed">
 				<div>{stats.width}x{stats.height} {stats.codec}</div>
-				<div>{formatBitrate(stats.bitrateKbps)}bps</div>
+				<div>{formatBitrateCompact(stats.bitrateKbps)}bps</div>
 				<div>buf {stats.bufferHealth.toFixed(2)}s</div>
 				<div>seg {stats.segmentsAppended}</div>
 				{#if stats.droppedSegments > 0}

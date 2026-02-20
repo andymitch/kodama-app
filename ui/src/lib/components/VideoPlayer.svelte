@@ -28,12 +28,14 @@
   let currentCodec = '';
   let currentWidth = 0;
   let currentHeight = 0;
-  /** Track recent segment sizes for bitrate estimation */
+  /** Track recent segment sizes and timestamps for bitrate estimation */
   let recentSegmentBytes: number[] = [];
-  let lastSegmentTime = 0;
+  let recentSegmentTimes: number[] = [];
   let initTimeout: ReturnType<typeof setTimeout> | null = null;
   /** Pending init event for retry after sourceopen timeout */
   let pendingInitEvent: VideoInitEvent | null = null;
+  const MAX_INIT_RETRIES = 3;
+  let initRetryCount = 0;
 
   function captureThumbnail() {
     if (!videoEl || videoEl.videoWidth === 0) return;
@@ -168,6 +170,7 @@
     queue = [];
     mediaSegmentsAppended = 0;
     appendErrorCount = 0;
+    droppedSegments = 0;
     if (thumbnailTimer) { clearInterval(thumbnailTimer); thumbnailTimer = null; }
   }
 
@@ -190,7 +193,7 @@
     currentWidth = event.width;
     currentHeight = event.height;
     recentSegmentBytes = [];
-    lastSegmentTime = 0;
+    recentSegmentTimes = [];
 
     const initData = event.init_segment;
     const codec = `video/mp4; codecs="${event.codec}"`;
@@ -205,12 +208,17 @@
     objectUrl = URL.createObjectURL(mediaSource);
     videoEl.src = objectUrl;
 
-    // Timeout: if sourceopen doesn't fire within 3s, tear down and retry
+    // Timeout: if sourceopen doesn't fire within 3s, tear down and retry (up to MAX_INIT_RETRIES)
     initTimeout = setTimeout(() => {
       if (!initialized && initInProgress) {
-        console.warn('[VideoPlayer] sourceopen timeout, retrying init for', sourceId);
+        initRetryCount++;
+        if (initRetryCount > MAX_INIT_RETRIES) {
+          console.error('[VideoPlayer] sourceopen failed after', MAX_INIT_RETRIES, 'retries for', sourceId);
+          teardown();
+          return;
+        }
+        console.warn('[VideoPlayer] sourceopen timeout, retrying init for', sourceId, `(attempt ${initRetryCount}/${MAX_INIT_RETRIES})`);
         teardown();
-        // Retry with the latest cached init event
         const retryEvent = pendingInitEvent ?? event;
         pendingInitEvent = null;
         handleInit(retryEvent);
@@ -231,6 +239,7 @@
         appendBuffer(initData);
         initialized = true;
         initInProgress = false;
+        initRetryCount = 0;
 
         if (thumbnailTimer) clearInterval(thumbnailTimer);
         thumbnailTimer = setInterval(captureThumbnail, 1000);
@@ -264,13 +273,14 @@
 
     if (!sourceBuffer) return;
 
-    // Track segment sizes for bitrate estimation
+    // Track segment sizes for bitrate estimation (rolling window)
     const now = performance.now();
     recentSegmentBytes.push(event.data.byteLength);
-    if (lastSegmentTime === 0) lastSegmentTime = now;
+    recentSegmentTimes.push(now);
     // Keep last ~5 seconds of data
     if (recentSegmentBytes.length > 150) {
       recentSegmentBytes = recentSegmentBytes.slice(-150);
+      recentSegmentTimes = recentSegmentTimes.slice(-150);
     }
 
     appendBuffer(event.data);
@@ -290,9 +300,11 @@
         const end = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
         bufferHealth = Math.max(0, end - videoEl.currentTime);
       }
-      // Estimate bitrate from recent segments
+      // Estimate bitrate from recent segments (rolling window)
       const totalBytes = recentSegmentBytes.reduce((a, b) => a + b, 0);
-      const elapsed = recentSegmentBytes.length > 0 ? (performance.now() - lastSegmentTime) / 1000 : 0;
+      const elapsed = recentSegmentTimes.length > 1
+        ? (recentSegmentTimes[recentSegmentTimes.length - 1] - recentSegmentTimes[0]) / 1000
+        : 0;
       const bitrateKbps = elapsed > 0 ? (totalBytes * 8) / elapsed / 1000 : 0;
 
       videoStatsStore.update(sourceId, {

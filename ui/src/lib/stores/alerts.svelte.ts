@@ -23,8 +23,6 @@ class AlertsStore {
 
 	unreadCount = $derived(this.alerts.filter((a) => !a.read).length);
 
-	recentAlerts = $derived(this.alerts.slice(0, MAX_ALERTS));
-
 	addAlert(type: AlertType, cameraId: string, cameraName: string, message: string) {
 		if (!this.enabled) return;
 

@@ -8,7 +8,7 @@
 
 	let gridLayout = $derived(settingsStore.gridLayout);
 
-	let gridClass = $derived(() => {
+	let gridClass = $derived.by(() => {
 		switch (gridLayout) {
 			case '1+5':
 				return 'grid-cols-3';
@@ -18,7 +18,7 @@
 	});
 
 	// Apply group filter
-	let cameras = $derived(() => {
+	let cameras = $derived.by(() => {
 		const all = cameraStore.cameras;
 		if (!cameraConfigStore.activeGroupId) return all;
 		return all.filter(
@@ -27,8 +27,8 @@
 	});
 
 	// For 1+5 layout, put selected camera first so it gets the featured (large) slot
-	let sortedCameras = $derived(() => {
-		const cams = cameras();
+	let sortedCameras = $derived.by(() => {
+		const cams = cameras;
 		if (gridLayout !== '1+5' || !cameraStore.selectedId) return cams;
 		const selected = cams.find((c) => c.id === cameraStore.selectedId);
 		if (!selected) return cams;
@@ -39,8 +39,8 @@
 <div class="flex flex-col h-full overflow-hidden">
 	<!-- Video grid -->
 	<div class="flex-1 min-h-0 overflow-y-auto p-2">
-	<div class={cn("grid gap-3", gridClass())}>
-		{#each sortedCameras() as camera, i (camera.id)}
+	<div class={cn("grid gap-3", gridClass)}>
+		{#each sortedCameras as camera, i (camera.id)}
 			<CameraCard
 				sourceId={camera.id}
 				name={cameraConfigStore.getDisplayName(camera.id, camera.name)}
@@ -49,7 +49,7 @@
 			/>
 		{/each}
 
-		{#if cameras().length === 0}
+		{#if cameras.length === 0}
 			<div class="col-span-full flex items-center justify-center text-muted-foreground text-sm">
 				{#if cameraConfigStore.activeGroupId}
 					No cameras in this group
