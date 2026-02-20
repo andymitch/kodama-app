@@ -58,6 +58,10 @@
 	$effect(() => {
 		const interval = setInterval(() => {
 			if (status) {
+				if (lastFrames === 0) {
+					lastFrames = status.frames_received;
+					return;
+				}
 				const delta = status.frames_received - lastFrames;
 				lastFrames = status.frames_received;
 				if (delta >= 0) {

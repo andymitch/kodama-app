@@ -43,7 +43,7 @@ class CameraConfigStore {
 
 	/** Get display name for a camera (override or fallback to original) */
 	getDisplayName(cameraId: string, originalName: string): string {
-		return this.overrides[cameraId]?.displayName || originalName;
+		return this.overrides[cameraId]?.displayName ?? originalName;
 	}
 
 	/** Rename a camera */

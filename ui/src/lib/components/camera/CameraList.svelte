@@ -95,6 +95,7 @@
 
 	{#each filteredCameras as camera (camera.id)}
 		{@const displayName = cameraConfigStore.getDisplayName(camera.id, camera.name)}
+		{@const groupId = cameraConfigStore.getGroupId(camera.id)}
 		<div class="group/item relative">
 			{#if editingId === camera.id}
 				<!-- Inline edit (name + group) -->
@@ -156,8 +157,8 @@
 					<div class="flex-1 min-w-0">
 						<div class="flex items-center gap-1.5">
 							<span class="truncate font-medium">{displayName}</span>
-							{#if cameraConfigStore.getGroupId(camera.id)}
-								{@const group = cameraConfigStore.groups.find((g) => g.id === cameraConfigStore.getGroupId(camera.id))}
+							{#if groupId}
+								{@const group = cameraConfigStore.groups.find((g) => g.id === groupId)}
 								{#if group}
 									<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">{group.name}</span>
 								{/if}
