@@ -5,13 +5,15 @@
  * This mock captures subscriptions and lets tests emit events.
  */
 import type { KodamaTransport, TransportEventName, TransportEvents, Unsubscribe } from '../transport.js';
-import type { CameraInfo, ServerStatus } from '../types.js';
+import type { CameraInfo, ServerStatus, VideoInitEvent } from '../types.js';
 
 type Listener<E extends TransportEventName = TransportEventName> = (data: TransportEvents[E]) => void;
 
 export class MockTransport implements KodamaTransport {
   private _connected = false;
   private listeners = new Map<TransportEventName, Set<Listener<any>>>();
+
+  private videoInitCache = new Map<string, VideoInitEvent>();
 
   connectCalls: string[] = [];
   disconnectCalls = 0;
@@ -48,6 +50,15 @@ export class MockTransport implements KodamaTransport {
     return () => set.delete(cb as Listener<any>);
   }
 
+  getVideoInit(sourceId: string): VideoInitEvent | undefined {
+    return this.videoInitCache.get(sourceId);
+  }
+
+  /** Set a cached video-init for testing segment-triggered recovery */
+  setVideoInit(sourceId: string, event: VideoInitEvent): void {
+    this.videoInitCache.set(sourceId, event);
+  }
+
   async listCameras(): Promise<CameraInfo[]> {
     return this.mockCameras;
   }
@@ -77,6 +88,7 @@ export class MockTransport implements KodamaTransport {
     this.connectCalls = [];
     this.disconnectCalls = 0;
     this.mockCameras = [];
+    this.videoInitCache.clear();
   }
 }
 

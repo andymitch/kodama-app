@@ -7,9 +7,12 @@
 	import SettingsDialog from '$lib/components/layout/SettingsDialog.svelte';
 	import LiveView from '$lib/views/LiveView.svelte';
 	import MapView from '$lib/views/MapView.svelte';
+	import DashboardView from '$lib/views/DashboardView.svelte';
+	import CameraView from '$lib/views/CameraView.svelte';
 
 	let mobileNavOpen = $state(false);
 	let settingsOpen = $state(false);
+	let alertsOpen = $state(false);
 
 	// Apply theme on mount and when it changes
 	$effect(() => {
@@ -34,26 +37,40 @@
 	});
 </script>
 
-<div class="flex h-dvh overflow-hidden bg-background">
-	<!-- Sidebar (desktop only, hidden <768px) -->
-	<Sidebar />
-
-	<!-- Mobile nav sheet -->
-	<MobileNav bind:open={mobileNavOpen} />
-
-	<!-- Main content area -->
-	<div class="flex flex-1 flex-col min-w-0">
-		<Header onMenuClick={() => (mobileNavOpen = true)} onSettingsClick={() => (settingsOpen = true)} />
-
-		<main class="flex-1 overflow-hidden relative">
-			<div class="absolute inset-0" class:hidden={settingsStore.currentView !== 'live'}>
-				<LiveView />
-			</div>
-			<div class="absolute inset-0" class:hidden={settingsStore.currentView !== 'map'}>
-				<MapView />
-			</div>
-		</main>
+{#if settingsStore.currentView === 'camera'}
+	<!-- Camera fullscreen view — no chrome -->
+	<div class="h-dvh overflow-hidden bg-black">
+		<CameraView />
 	</div>
-</div>
+{:else}
+	<div class="flex h-dvh overflow-hidden bg-background">
+		<!-- Sidebar (desktop only, hidden <768px) -->
+		<Sidebar showAlerts={alertsOpen} />
+
+		<!-- Mobile nav sheet -->
+		<MobileNav bind:open={mobileNavOpen} />
+
+		<!-- Main content area -->
+		<div class="flex flex-1 flex-col min-w-0">
+			<Header
+				onMenuClick={() => (mobileNavOpen = true)}
+				onSettingsClick={() => (settingsOpen = true)}
+				onAlertsClick={() => (alertsOpen = !alertsOpen)}
+			/>
+
+			<main class="flex-1 overflow-hidden relative">
+				<div class="absolute inset-0" class:hidden={settingsStore.currentView !== 'live'}>
+					<LiveView />
+				</div>
+				<div class="absolute inset-0" class:hidden={settingsStore.currentView !== 'map'}>
+					<MapView />
+				</div>
+				<div class="absolute inset-0" class:hidden={settingsStore.currentView !== 'dashboard'}>
+					<DashboardView />
+				</div>
+			</main>
+		</div>
+	</div>
+{/if}
 
 <SettingsDialog bind:open={settingsOpen} />

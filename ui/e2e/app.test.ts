@@ -56,9 +56,10 @@ test.describe('Settings dialog', () => {
 	test('shows connection status', async ({ page }) => {
 		await page.locator('header').getByRole('button').last().click();
 
-		await expect(page.getByRole('heading', { name: 'Connection' })).toBeVisible();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog.getByRole('heading', { name: 'Connection' })).toBeVisible();
 		// WebSocket mock accepts the upgrade, so transport reports connected
-		await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+		await expect(dialog.getByText('Connected', { exact: true })).toBeVisible();
 	});
 });
 
@@ -67,11 +68,11 @@ test.describe('Header state', () => {
 		const header = page.getByRole('banner');
 		const toggleButtons = header.locator('button[aria-pressed]');
 
-		// Live view: view toggle (2) + grid layout (2) = 4 toggle buttons
-		await expect(toggleButtons).toHaveCount(4);
-
-		// Switch to map: view toggle (2) + marker mode (3) = 5 toggle buttons
-		await page.getByRole('button', { name: /MAP/ }).click();
+		// Live view: view toggle (3: live/map/dashboard) + grid layout (2) = 5 toggle buttons
 		await expect(toggleButtons).toHaveCount(5);
+
+		// Switch to map: view toggle (3) + marker mode (3) = 6 toggle buttons
+		await page.getByRole('button', { name: /MAP/ }).click();
+		await expect(toggleButtons).toHaveCount(6);
 	});
 });

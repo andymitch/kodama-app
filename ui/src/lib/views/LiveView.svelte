@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cameraStore } from '$lib/stores/cameras.svelte.js';
+	import { cameraConfigStore } from '$lib/stores/cameraConfig.svelte.js';
 	import { settingsStore } from '$lib/stores/settings.svelte.js';
 	import CameraCard from '$lib/components/camera/CameraCard.svelte';
 	import RecordingTimeline from '$lib/components/timeline/RecordingTimeline.svelte';
@@ -7,33 +8,42 @@
 
 	let gridLayout = $derived(settingsStore.gridLayout);
 
-	let gridClass = $derived(() => {
+	let gridClass = $derived.by(() => {
 		switch (gridLayout) {
 			case '1+5':
-				return 'grid-cols-3 grid-rows-2';
+				return 'grid-cols-3';
 			default: // auto
 				return 'grid-cols-[repeat(auto-fit,minmax(min(100%,28rem),1fr))]';
 		}
 	});
 
-	let cameras = $derived(cameraStore.cameras);
+	// Apply group filter
+	let cameras = $derived.by(() => {
+		const all = cameraStore.cameras;
+		if (!cameraConfigStore.activeGroupId) return all;
+		return all.filter(
+			(c) => cameraConfigStore.getGroupId(c.id) === cameraConfigStore.activeGroupId
+		);
+	});
 
 	// For 1+5 layout, put selected camera first so it gets the featured (large) slot
-	let sortedCameras = $derived(() => {
-		if (gridLayout !== '1+5' || !cameraStore.selectedId) return cameras;
-		const selected = cameras.find((c) => c.id === cameraStore.selectedId);
-		if (!selected) return cameras;
-		return [selected, ...cameras.filter((c) => c.id !== cameraStore.selectedId)];
+	let sortedCameras = $derived.by(() => {
+		const cams = cameras;
+		if (gridLayout !== '1+5' || !cameraStore.selectedId) return cams;
+		const selected = cams.find((c) => c.id === cameraStore.selectedId);
+		if (!selected) return cams;
+		return [selected, ...cams.filter((c) => c.id !== cameraStore.selectedId)];
 	});
 </script>
 
 <div class="flex flex-col h-full overflow-hidden">
 	<!-- Video grid -->
-	<div class={cn("flex-1 min-h-0 overflow-auto grid gap-2 p-2 content-start", gridClass())}>
-		{#each sortedCameras() as camera, i (camera.id)}
+	<div class="flex-1 min-h-0 overflow-y-auto p-2">
+	<div class={cn("grid gap-3", gridClass)}>
+		{#each sortedCameras as camera, i (camera.id)}
 			<CameraCard
 				sourceId={camera.id}
-				name={camera.name}
+				name={cameraConfigStore.getDisplayName(camera.id, camera.name)}
 				connected={camera.connected}
 				featured={gridLayout === '1+5' && i === 0}
 			/>
@@ -41,9 +51,14 @@
 
 		{#if cameras.length === 0}
 			<div class="col-span-full flex items-center justify-center text-muted-foreground text-sm">
-				No cameras connected. Waiting for feeds...
+				{#if cameraConfigStore.activeGroupId}
+					No cameras in this group
+				{:else}
+					No cameras connected. Waiting for feeds...
+				{/if}
 			</div>
 		{/if}
+	</div>
 	</div>
 
 	<!-- Recording timeline -->

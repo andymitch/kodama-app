@@ -1,8 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import VideoPlayer from '$lib/components/VideoPlayer.svelte';
 	import AudioPlayer from '$lib/components/AudioPlayer.svelte';
 	import { cameraStore } from '$lib/stores/cameras.svelte.js';
+	import { settingsStore } from '$lib/stores/settings.svelte.js';
+	import { videoStatsStore } from '$lib/stores/videoStats.svelte.js';
 	import { cn } from '$lib/utils.js';
+	import { formatBitrateCompact } from '$lib/utils/format.js';
+	import { Camera, PictureInPicture2, Volume2, VolumeOff } from 'lucide-svelte';
 
 	let {
 		sourceId,
@@ -18,20 +23,63 @@
 
 	let isSelected = $derived(cameraStore.selectedId === sourceId);
 	let camera = $derived(cameraStore.cameras.find((c) => c.id === sourceId));
-	let muted = $state(true);
+	let stats = $derived(videoStatsStore.get(sourceId));
+	let muted = $derived(!isSelected);
+	let videoElement = $state<HTMLVideoElement | undefined>(undefined);
+	let cardEl = $state<HTMLButtonElement | undefined>(undefined);
+	let isVisible = $state(true);
+
+	// Lazy rendering: pause video decode when card is off-screen
+	onMount(() => {
+		if (!cardEl || typeof IntersectionObserver === 'undefined') return;
+		const observer = new IntersectionObserver(
+			([entry]) => { isVisible = entry.isIntersecting; },
+			{ threshold: 0 }
+		);
+		observer.observe(cardEl);
+		return () => observer.disconnect();
+	});
+
+	function captureSnapshot(e: MouseEvent) {
+		e.stopPropagation();
+		if (!videoElement || videoElement.videoWidth === 0) return;
+		const canvas = document.createElement('canvas');
+		canvas.width = videoElement.videoWidth;
+		canvas.height = videoElement.videoHeight;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+		ctx.drawImage(videoElement, 0, 0);
+		const link = document.createElement('a');
+		link.download = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+		link.href = canvas.toDataURL('image/png');
+		link.click();
+	}
+
+	function togglePiP(e: MouseEvent) {
+		e.stopPropagation();
+		if (!videoElement) return;
+		if (document.pictureInPictureElement === videoElement) {
+			document.exitPictureInPicture().catch(() => {});
+		} else {
+			videoElement.requestPictureInPicture().catch(() => {});
+		}
+	}
+
 </script>
 
 <button
+	bind:this={cardEl}
 	class={cn(
 		"relative overflow-hidden rounded-lg bg-black group cursor-pointer transition-all w-full aspect-video",
 		isSelected ? "ring-2 ring-primary" : "ring-1 ring-border/50 hover:ring-border",
 		featured ? "col-span-2 row-span-2" : ""
 	)}
 	onclick={() => cameraStore.select(sourceId)}
+	ondblclick={() => settingsStore.openCameraView(sourceId)}
 >
 	<!-- Video feed -->
 	<div class="absolute inset-0">
-		<VideoPlayer {sourceId} />
+		<VideoPlayer {sourceId} bind:videoElement active={isVisible} />
 	</div>
 
 	<!-- Top gradient overlay -->
@@ -44,12 +92,20 @@
 				)}></span>
 				<span class="text-xs font-medium text-white/90 drop-shadow-sm">{name}</span>
 			</div>
-			<span class={cn(
-				"text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded",
-				connected ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"
-			)}>
-				{connected ? 'LIVE' : 'OFF'}
-			</span>
+			<div class="flex items-center gap-1.5">
+				{#if stats && stats.width > 0}
+					<span class="text-[9px] text-white/50 font-mono">{stats.width}x{stats.height}</span>
+					{#if stats.bitrateKbps > 0}
+						<span class="text-[9px] text-white/50 font-mono">{formatBitrateCompact(stats.bitrateKbps)}</span>
+					{/if}
+				{/if}
+				<span class={cn(
+					"text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded",
+					connected ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"
+				)}>
+					{connected ? 'LIVE' : 'OFF'}
+				</span>
+			</div>
 		</div>
 	</div>
 
@@ -70,12 +126,50 @@
 
 	<!-- Audio -->
 	<AudioPlayer {sourceId} {muted} />
+
+	<!-- Action buttons (hover) -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-		onclick={(e) => { e.stopPropagation(); muted = !muted; }}
-	>
-		<span class="text-xs text-white/70 drop-shadow-sm">{muted ? '🔇' : '🔊'}</span>
+	<div class="absolute bottom-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+		<div class="cursor-pointer rounded bg-black/50 p-1" onclick={captureSnapshot} title="Save snapshot">
+			<Camera class="h-3 w-3 text-white/70" />
+		</div>
+		<div class="cursor-pointer rounded bg-black/50 p-1" onclick={togglePiP} title="Picture-in-Picture">
+			<PictureInPicture2 class="h-3 w-3 text-white/70" />
+		</div>
+		<div class="rounded bg-black/50 p-1" title={muted ? 'Select to unmute' : 'Audio active'}>
+			{#if muted}
+				<VolumeOff class="h-3 w-3 text-white/70" />
+			{:else}
+				<Volume2 class="h-3 w-3 text-white/70" />
+			{/if}
+		</div>
 	</div>
+
+	<!-- Buffer health indicator -->
+	{#if stats && stats.droppedSegments > 0 && !settingsStore.debugMode}
+		<div class="absolute top-8 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+			<span class="text-[9px] text-yellow-400/80 font-mono bg-black/50 rounded px-1 py-0.5">
+				{stats.droppedSegments} dropped
+			</span>
+		</div>
+	{/if}
+
+	<!-- Debug overlay -->
+	{#if settingsStore.debugMode && stats}
+		<div class="absolute top-8 left-2 z-10 pointer-events-none">
+			<div class="bg-black/70 rounded px-1.5 py-1 text-[9px] font-mono text-green-400 leading-relaxed">
+				<div>{stats.width}x{stats.height} {stats.codec}</div>
+				<div>{formatBitrateCompact(stats.bitrateKbps)}bps</div>
+				<div>buf {stats.bufferHealth.toFixed(2)}s</div>
+				<div>seg {stats.segmentsAppended}</div>
+				{#if stats.droppedSegments > 0}
+					<div class="text-yellow-400">drop {stats.droppedSegments}</div>
+				{/if}
+				{#if !isVisible}
+					<div class="text-orange-400">PAUSED</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </button>

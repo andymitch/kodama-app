@@ -41,6 +41,8 @@ export interface KodamaTransport {
     cb: (data: TransportEvents[E]) => void,
   ): Unsubscribe;
 
+  getVideoInit(sourceId: string): VideoInitEvent | undefined;
+
   listCameras(): Promise<CameraInfo[]>;
   getStatus(): Promise<ServerStatus>;
 }

@@ -4,14 +4,17 @@
 	import { transportStore } from '$lib/stores/transport.svelte.js';
 	import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Map, Video, LayoutGrid, LayoutDashboard, Menu, Settings, MapPin, Tag, MonitorPlay } from 'lucide-svelte';
+	import { Map, Video, LayoutGrid, LayoutDashboard, Menu, Settings, MapPin, Tag, MonitorPlay, Bell, Activity } from 'lucide-svelte';
+	import AlertBadge from '$lib/components/alerts/AlertBadge.svelte';
 
 	let {
 		onMenuClick,
 		onSettingsClick,
+		onAlertsClick,
 	}: {
 		onMenuClick?: () => void;
 		onSettingsClick?: () => void;
+		onAlertsClick?: () => void;
 	} = $props();
 
 	let currentView = $derived(settingsStore.currentView);
@@ -32,7 +35,7 @@
 	<div class="flex items-center gap-2">
 		<ToggleGroup bind:value={
 			() => settingsStore.currentView,
-			(v) => settingsStore.setView(v as 'live' | 'map')
+			(v) => settingsStore.setView(v as 'live' | 'map' | 'dashboard')
 		}>
 			<ToggleGroupItem value="live">
 				<Video class="h-4 w-4 mr-1.5" />
@@ -41,6 +44,10 @@
 			<ToggleGroupItem value="map">
 				<Map class="h-4 w-4 mr-1.5" />
 				<span class="hidden sm:inline text-xs">MAP</span>
+			</ToggleGroupItem>
+			<ToggleGroupItem value="dashboard">
+				<Activity class="h-4 w-4 mr-1.5" />
+				<span class="hidden sm:inline text-xs">DASH</span>
 			</ToggleGroupItem>
 		</ToggleGroup>
 	</div>
@@ -82,6 +89,13 @@
 			</span>
 			<span>online</span>
 		</div>
+
+		<Button variant="ghost" size="icon" class="relative" onclick={onAlertsClick}>
+			<Bell class="h-4 w-4" />
+			<span class="absolute -top-0.5 -right-0.5">
+				<AlertBadge />
+			</span>
+		</Button>
 
 		<Button variant="ghost" size="icon" onclick={onSettingsClick}>
 			<Settings class="h-4 w-4" />

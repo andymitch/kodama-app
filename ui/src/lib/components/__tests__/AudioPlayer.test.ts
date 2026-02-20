@@ -27,6 +27,7 @@ class MockAudioContext {
     addModule: vi.fn().mockResolvedValue(undefined),
   };
   destination = {};
+  state = 'running';
   closed = false;
 
   constructor(options?: { sampleRate?: number }) {
@@ -36,6 +37,11 @@ class MockAudioContext {
 
   createGain() {
     return { connect: vi.fn(), disconnect: vi.fn(), gain: { value: 1 } };
+  }
+
+  resume() {
+    this.state = 'running';
+    return Promise.resolve();
   }
 
   close() {
@@ -80,20 +86,30 @@ describe('AudioPlayer', () => {
     expect(getTransport().hasListeners('audio-data')).toBe(true);
   });
 
-  it('creates AudioContext on first audio data', async () => {
-    render(AudioPlayer, { props: { sourceId: 'cam1' } });
+  it('does not create AudioContext when muted', async () => {
+    render(AudioPlayer, { props: { sourceId: 'cam1', muted: true } });
     const transport = getTransport();
 
     transport.emit('audio-data', makeAudioData());
     await tick();
-    // Allow async ensureWorklet to complete
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(MockAudioContext.instances.length).toBe(0);
+  });
+
+  it('creates AudioContext on first audio data when unmuted', async () => {
+    render(AudioPlayer, { props: { sourceId: 'cam1', muted: false } });
+    const transport = getTransport();
+
+    transport.emit('audio-data', makeAudioData());
+    await tick();
     await new Promise((r) => setTimeout(r, 10));
 
     expect(MockAudioContext.instances.length).toBe(1);
   });
 
   it('creates AudioContext with correct sample rate', async () => {
-    render(AudioPlayer, { props: { sourceId: 'cam1' } });
+    render(AudioPlayer, { props: { sourceId: 'cam1', muted: false } });
     const transport = getTransport();
 
     transport.emit('audio-data', makeAudioData('cam1', 16000));
@@ -104,7 +120,7 @@ describe('AudioPlayer', () => {
   });
 
   it('loads worklet module', async () => {
-    render(AudioPlayer, { props: { sourceId: 'cam1' } });
+    render(AudioPlayer, { props: { sourceId: 'cam1', muted: false } });
     const transport = getTransport();
 
     transport.emit('audio-data', makeAudioData());
@@ -116,7 +132,7 @@ describe('AudioPlayer', () => {
   });
 
   it('ignores events for other source IDs', async () => {
-    render(AudioPlayer, { props: { sourceId: 'cam1' } });
+    render(AudioPlayer, { props: { sourceId: 'cam1', muted: false } });
     const transport = getTransport();
 
     transport.emit('audio-data', makeAudioData('cam2'));
@@ -127,7 +143,7 @@ describe('AudioPlayer', () => {
   });
 
   it('cleans up AudioContext on unmount', async () => {
-    const { unmount } = render(AudioPlayer, { props: { sourceId: 'cam1' } });
+    const { unmount } = render(AudioPlayer, { props: { sourceId: 'cam1', muted: false } });
     const transport = getTransport();
 
     transport.emit('audio-data', makeAudioData());
@@ -140,7 +156,7 @@ describe('AudioPlayer', () => {
   });
 
   it('does not create multiple AudioContexts for rapid events', async () => {
-    render(AudioPlayer, { props: { sourceId: 'cam1' } });
+    render(AudioPlayer, { props: { sourceId: 'cam1', muted: false } });
     const transport = getTransport();
 
     // Fire several events rapidly
@@ -165,11 +181,13 @@ describe('AudioPlayer', () => {
         addModule: vi.fn().mockRejectedValue(new Error('load failed')),
       };
       destination = {};
+      state = 'running';
       constructor(options?: any) { this.sampleRate = options?.sampleRate ?? 48000; }
+      resume() { return Promise.resolve(); }
       close() { return Promise.resolve(); }
     };
 
-    render(AudioPlayer, { props: { sourceId: 'cam1' } });
+    render(AudioPlayer, { props: { sourceId: 'cam1', muted: false } });
     const transport = getTransport();
 
     transport.emit('audio-data', makeAudioData());

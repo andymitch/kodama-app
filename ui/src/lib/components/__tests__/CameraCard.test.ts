@@ -61,7 +61,7 @@ describe('CameraCard', () => {
 
   it('renders mute toggle (muted by default)', () => {
     render(CameraCard, { props: { sourceId: 'cam1', name: 'Cam', connected: true } });
-    expect(screen.getByText('🔇')).toBeInTheDocument();
+    expect(screen.getByTitle('Select to unmute')).toBeInTheDocument();
   });
 
   it('shows telemetry overlay when camera has telemetry data', () => {

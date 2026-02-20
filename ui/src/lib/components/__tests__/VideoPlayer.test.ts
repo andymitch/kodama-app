@@ -65,7 +65,28 @@ class MockMediaSource extends EventTarget {
   _sourceBuffers: MockSourceBuffer[] = [];
   _endOfStreamCalled = false;
 
+  /** When set, addSourceBuffer will throw this error (once), then clear it */
+  static _addSourceBufferError: Error | null = null;
+  /** When true, sourceopen fires automatically after construction */
+  static _autoFireSourceOpen = false;
+
+  constructor() {
+    super();
+    if (MockMediaSource._autoFireSourceOpen) {
+      // Fire sourceopen asynchronously to mimic real behavior
+      queueMicrotask(() => {
+        this.readyState = 'open';
+        this.dispatchEvent(new Event('sourceopen'));
+      });
+    }
+  }
+
   addSourceBuffer(_mimeType: string) {
+    if (MockMediaSource._addSourceBufferError) {
+      const err = MockMediaSource._addSourceBufferError;
+      MockMediaSource._addSourceBufferError = null;
+      throw err;
+    }
     const sb = new MockSourceBuffer();
     this._sourceBuffers.push(sb);
     return sb as any;
@@ -86,6 +107,8 @@ let revokedObjectURLs: string[] = [];
 
 function setupMSEMocks() {
   (globalThis as any).MediaSource = MockMediaSource;
+  MockMediaSource._addSourceBufferError = null;
+  MockMediaSource._autoFireSourceOpen = false;
   createdObjectURLs = [];
   revokedObjectURLs = [];
 
@@ -277,5 +300,64 @@ describe('VideoPlayer', () => {
     if (createdObjectURLs.length > 0) {
       expect(revokedObjectURLs.length).toBeGreaterThan(0);
     }
+  });
+
+  it('recovers when addSourceBuffer throws', async () => {
+    MockMediaSource._autoFireSourceOpen = true;
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(VideoPlayer, { props: { sourceId: 'cam1' } });
+    const transport = getTransport();
+
+    // First init: addSourceBuffer will throw
+    MockMediaSource._addSourceBufferError = new Error('QuotaExceededError');
+    transport.emit('video-init', makeInitEvent());
+    await tick();
+    // Let sourceopen fire (queued microtask)
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Should have logged the error and torn down (initInProgress reset)
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to initialize'),
+      expect.any(Error),
+    );
+
+    // Second init: addSourceBuffer succeeds (error was cleared after first throw)
+    transport.emit('video-init', makeInitEvent());
+    await tick();
+    await new Promise((r) => setTimeout(r, 10));
+
+    // A new MediaSource + objectUrl should have been created for the retry
+    expect(createdObjectURLs.length).toBeGreaterThanOrEqual(2);
+
+    consoleSpy.mockRestore();
+  });
+
+  it('triggers init recovery when segments arrive without init', async () => {
+    MockMediaSource._autoFireSourceOpen = true;
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(VideoPlayer, { props: { sourceId: 'cam1' } });
+    const transport = getTransport();
+
+    // Pre-cache an init event in the mock transport (simulating server replay)
+    const initEvent = makeInitEvent();
+    transport.setVideoInit('cam1', initEvent);
+
+    // Send a segment without any prior init event — should trigger recovery
+    transport.emit('video-segment', makeSegmentEvent());
+    await tick();
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Should have logged recovery attempt
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Segment-triggered init recovery'),
+      'cam1',
+    );
+
+    // A MediaSource should have been created as part of recovery
+    expect(createdObjectURLs.length).toBeGreaterThanOrEqual(1);
+
+    consoleSpy.mockRestore();
   });
 });
