@@ -26,5 +26,8 @@ ui/build/
 **/bun.lock
 **/bun.lockb
 
+# Playwright
+ui/test-results/
+
 # Camera sim ephemeral keys
 .camera-keys/
