@@ -24,6 +24,9 @@ jobs:
       - name: Type check
         run: cd ui && bun run check
 
+      - name: Unit tests
+        run: cd ui && bun run test
+
       - name: Build UI
         run: cd ui && bun run build
 
@@ -51,3 +54,30 @@ jobs:
 
       - name: Cargo check
         run: cargo check --workspace
+
+      - name: Cargo test
+        run: cargo test --workspace
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install UI dependencies
+        run: cd ui && bun install
+
+      - name: Install Playwright browsers
+        run: cd ui && bunx playwright install --with-deps chromium
+
+      - name: Run e2e tests
+        run: cd ui && bun run test:e2e
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: ui/test-results/
