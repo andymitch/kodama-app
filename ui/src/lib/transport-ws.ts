@@ -144,6 +144,10 @@ export class WebSocketTransport implements KodamaTransport {
     return () => set.delete(cb as Listener<any>);
   }
 
+  getVideoInit(sourceId: string): VideoInitEvent | undefined {
+    return this.videoInitCache.get(sourceId);
+  }
+
   async listCameras(): Promise<CameraInfo[]> {
     const res = await fetch(`${this.baseUrl}/api/cameras`);
     if (!res.ok) throw new Error(`Failed to list cameras: ${res.status}`);

@@ -268,6 +268,14 @@
     if (!initialized) {
       if (initInProgress) {
         queue.push(event.data);
+      } else if (initRetryCount < MAX_INIT_RETRIES) {
+        // Segments arriving with no init in progress — try recovering from cached init
+        const transport = getTransport();
+        const cachedInit = transport.getVideoInit(sourceId);
+        if (cachedInit) {
+          console.warn('[VideoPlayer] Segment-triggered init recovery for', sourceId);
+          handleInit(cachedInit);
+        }
       }
       return;
     }
