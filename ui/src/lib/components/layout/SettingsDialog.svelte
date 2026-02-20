@@ -39,7 +39,7 @@
 			<SheetDescription>Server configuration and preferences</SheetDescription>
 		</SheetHeader>
 
-		<div class="mt-6 space-y-6">
+		<div class="mt-6 space-y-6 overflow-y-auto" style="max-height: calc(100vh - 8rem);">
 			<!-- Theme -->
 			<div>
 				<h3 class="text-sm font-medium mb-3">Theme</h3>
